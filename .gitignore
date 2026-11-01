@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+.local/
+*.log
+.env
+.env.*
+!.env.example
+
+# Local research notes and earlier manual
+docs/原始版本研究.md
+docs/原始版本Mac核查.md
+docs/源码功能与数据结构.md
+docs/二次开发手册.md

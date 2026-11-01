@@ -1,0 +1,131 @@
+/* Rendering and UI for user-supplied pixel art. Existing interaction classes stay intact. */
+.pixel-sprite,
+.pixel-avatar {
+  image-rendering: pixelated;
+}
+.pixel-sprite {
+  pointer-events: none;
+}
+.pixel-avatar {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.pixel-classroom .sprite-front {
+  display: none;
+}
+.pixel-classroom .seat:hover .sprite-front,
+.pixel-classroom .seat.turn .sprite-front {
+  display: block;
+}
+.pixel-classroom .seat:hover .sprite-back,
+.pixel-classroom .seat.turn .sprite-back {
+  display: none;
+}
+.pixel-classroom .seat .lbl {
+  fill: #293b35;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pixel-classroom .seat .seatno {
+  fill: #354c43;
+}
+.pixel-classroom .seat:hover .nameplate rect,
+.pixel-classroom .seat.picked .nameplate rect,
+.pixel-classroom .seat.sel .nameplate rect {
+  stroke: #c18c35;
+  stroke-width: 3;
+}
+.pixel-classroom .seat.hand .stu-in {
+  animation: pixel-hop 0.7s ease-in-out 3;
+}
+.pixel-classroom .seat.sleep .head {
+  transform: translateY(3px) rotate(-7deg);
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.pixel-classroom .teacher {
+  cursor: pointer;
+}
+.pixel-classroom .teacher.point .teacher-character {
+  transform: translateY(-4px);
+}
+.pixel-classroom .pixel-stars {
+  cursor: pointer;
+}
+.pixel-classroom .pixel-stars:hover {
+  filter: brightness(1.1);
+}
+.pixel-classroom .nameplate,
+.pixel-classroom .chair-foreground {
+  pointer-events: none;
+}
+.pixel-classroom .seat.empty .add {
+  opacity: 0.55;
+}
+.pixel-classroom .seat.empty:hover .add {
+  opacity: 1;
+}
+
+.character-picker {
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+.character-picker summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  max-height: 330px;
+  overflow-y: auto;
+
+  gap: 8px;
+  padding: 3px;
+}
+.character-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  padding: 10px 3px;
+}
+.character-choice span {
+  font-size: 12px;
+}
+.character-choice:hover {
+  background: #e8efdf;
+}
+.character-choice.selected {
+  background: #e5f0e8;
+
+  border-color: #377564;
+}
+
+@keyframes pixel-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-classroom .seat.hand .stu-in {
+    animation: none;
+  }
+}
+.app.no-anim .pixel-classroom .seat.hand .stu-in {
+  animation: none;
+}

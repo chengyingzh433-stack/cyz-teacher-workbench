@@ -1,0 +1,31 @@
+import { mountPixelAssets } from './art/sprites.js';
+import { setStorageErrorHandler } from './core/storage.js';
+import { UI } from './ui/workspace.js';
+import { openStudent, openStudentForm } from './features/students.js';
+import { renderThread, copyPromptModal } from './ai/workspace.js';
+// Composition root: initialize modules, wire cross-page interactions, then boot.
+import { registerUiEvents } from './ui/events.js';
+import { registerFeaturesClassroom } from './features/classroom.js';
+import { registerFeaturesStudents } from './features/students.js';
+import { registerFeaturesScores } from './features/scores.js';
+import { registerFeaturesAnalysis } from './features/analysis.js';
+import { registerAiWorkspace } from './ai/workspace.js';
+import { registerAiBatch } from './ai/batch.js';
+import { registerFeaturesSettings } from './features/settings.js';
+import { registerFeaturesOnboarding } from './features/onboarding.js';
+import { registerBootstrap } from './bootstrap.js';
+import { boot } from './bootstrap.js';
+
+mountPixelAssets();
+setStorageErrorHandler((message) => UI.toast(message));
+registerUiEvents();
+registerFeaturesClassroom({ openStudent, openStudentForm });
+registerFeaturesStudents();
+registerFeaturesScores();
+registerFeaturesAnalysis();
+registerAiWorkspace();
+registerAiBatch({ renderThread, copyPromptModal });
+registerFeaturesSettings();
+registerFeaturesOnboarding();
+registerBootstrap();
+boot();
