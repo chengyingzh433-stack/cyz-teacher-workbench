@@ -1,7 +1,9 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { app, BrowserWindow, net, protocol, safeStorage } from 'electron';
+import { app, BrowserWindow, nativeTheme, net, protocol, safeStorage } from 'electron';
+import { getThemeWindowMeta } from '../shared/theme-meta';
 import { VaultManager } from './vault';
 import { AiKeychainStore } from './keychain';
 import { MainAiProxy } from './ai-proxy';
@@ -36,8 +38,60 @@ function resolveSpritesDir(): string {
   return candidates[1];
 }
 
-function createWindow() {
+function isWindows11Build(): boolean {
+  if (process.platform !== 'win32') return false;
+  const parts = os.release().split('.');
+  const build = Number(parts[2] || 0);
+  return Number.isFinite(build) && build >= 22621;
+}
+
+function applyWindowTheme(win: BrowserWindow | null, themeId: string) {
+  if (!win || win.isDestroyed()) return;
+  const meta = getThemeWindowMeta(themeId);
+  const isGlass = meta.windowMaterial !== 'opaque';
+
+  // Sync native OS appearance (controls macOS vibrancy light/dark tint + native menus/scrollbars)
+  nativeTheme.themeSource = meta.isDark ? 'dark' : 'light';
+
+  if (process.platform === 'darwin') {
+    if (isGlass) {
+      win.setBackgroundColor('#00000000');
+      win.setVibrancy('under-window');
+    } else {
+      win.setVibrancy(null);
+      win.setBackgroundColor(meta.windowBg);
+    }
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    if (isGlass && isWindows11Build()) {
+      try {
+        win.setBackgroundColor('#00000000');
+        win.setBackgroundMaterial('acrylic');
+        return;
+      } catch {
+        // Gracefully fall back to CSS frosted glass backdrop
+      }
+    }
+    try {
+      win.setBackgroundMaterial('none');
+    } catch {
+      // Ignore on Win10
+    }
+    win.setBackgroundColor(meta.windowBg);
+    return;
+  }
+
+  win.setBackgroundColor(meta.windowBg);
+}
+
+function createWindow(initialThemeId: string) {
   const isMac = process.platform === 'darwin';
+  const meta = getThemeWindowMeta(initialThemeId);
+  const isGlass = meta.windowMaterial !== 'opaque';
+  nativeTheme.themeSource = meta.isDark ? 'dark' : 'light';
+
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 880,
@@ -45,12 +99,17 @@ function createWindow() {
     minHeight: 680,
     show: false,
     title: 'cyz的教师工作台',
-    backgroundColor: '#faf9f6',
+    backgroundColor: isGlass && (isMac || isWindows11Build()) ? '#00000000' : meta.windowBg,
     ...(isMac
       ? {
           titleBarStyle: 'hiddenInset',
           trafficLightPosition: { x: 16, y: 15 },
+          visualEffectState: 'active',
+          vibrancy: isGlass ? 'under-window' : undefined,
         }
+      : {}),
+    ...(process.platform === 'win32' && isGlass && isWindows11Build()
+      ? { backgroundMaterial: 'acrylic' as const }
       : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
@@ -61,6 +120,7 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
+    applyWindowTheme(mainWindow, vault?.getPreferences().themeId || initialThemeId);
     mainWindow?.show();
   });
 
@@ -140,12 +200,15 @@ if (!gotLock) {
       aiProxy,
       zhixue,
       getWindow: () => mainWindow,
+      onThemeChanged: (themeId) => applyWindowTheme(mainWindow, themeId),
     });
 
-    createWindow();
+    createWindow(vault.getPreferences().themeId);
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow(vault?.getPreferences().themeId || 'studio-light');
+      }
     });
   });
 

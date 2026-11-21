@@ -46,6 +46,7 @@ export function ClassroomWorkspace({
   teacher,
   members,
   exams,
+  themeId,
   onOpenProfile,
   onNotify,
 }: {
@@ -53,6 +54,7 @@ export function ClassroomWorkspace({
   teacher: TeacherProfile;
   members: StudentMember[];
   exams: ExamSummary[];
+  themeId: string;
   onOpenProfile: (membershipId: string) => void;
   onNotify: (msg: string, tone?: 'ok' | 'err') => void;
 }) {
@@ -371,6 +373,7 @@ export function ClassroomWorkspace({
             teacher={teacher}
             plan={plan}
             members={members}
+            themeId={themeId}
             editing={editing}
             selected={selected}
             highlightedId={highlighted}

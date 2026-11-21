@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { ClassRecord, ExamSummary, StudentMember } from '../../../shared/types';
 import type { NavSpace } from '../../App';
+import { listThemes } from '../../themes';
 
 export function CommandPalette({
   open,
@@ -28,7 +29,7 @@ export function CommandPalette({
   onSelectSpace,
   onSelectStudent,
   onSelectExam,
-  onToggleTheme,
+  onSelectTheme,
   onOpenSettings,
   onOpenTrash,
 }: {
@@ -43,7 +44,7 @@ export function CommandPalette({
   onSelectSpace: (space: NavSpace) => void;
   onSelectStudent: (membershipId: string) => void;
   onSelectExam: (examId: string) => void;
-  onToggleTheme: () => void;
+  onSelectTheme: (themeId: string) => void;
   onOpenSettings: () => void;
   onOpenTrash: () => void;
 }) {
@@ -148,19 +149,35 @@ export function CommandPalette({
                 <Command.Item value="智学网 网阅伴侣 zhixue" onSelect={() => run(() => onSelectSpace('zhixue'))}>
                   <Globe className="w-4 h-4" /> 打开「智学网 / 网阅伴侣」
                 </Command.Item>
-                <Command.Item value="切换主题 深色 浅色 theme dark light" onSelect={() => run(onToggleTheme)}>
-                  {themeId === 'studio-dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                  切换外观主题（当前：{themeId === 'studio-dark' ? '深夜护眼' : '暖白工作室'}）
-                </Command.Item>
                 <Command.Item value="设置 AI 钥匙串 资料库 settings" onSelect={() => run(onOpenSettings)}>
                   <Settings className="w-4 h-4" /> 打开「设置（主题 / AI / 资料库）」
                 </Command.Item>
                 <Command.Item value="回收站 恢复 删除 trash" onSelect={() => run(onOpenTrash)}>
                   <Trash2 className="w-4 h-4" /> 打开「回收站」
                 </Command.Item>
-                <Command.Item value="主题引擎 外观风格 palette" onSelect={() => run(onOpenSettings)}>
-                  <Palette className="w-4 h-4" /> 浏览外观主题与扩展风格
-                </Command.Item>
+              </Command.Group>
+
+              <Command.Group heading="秒切外观主题风格（7 套预设）">
+                {listThemes().map((t) => (
+                  <Command.Item
+                    key={t.id}
+                    value={`主题 风格 theme ${t.id} ${t.name} ${t.badge} ${t.tagline}`}
+                    onSelect={() => run(() => onSelectTheme(t.id))}
+                  >
+                    {t.isDark ? (
+                      <Moon className="w-4 h-4 text-[var(--ink-muted)]" />
+                    ) : t.windowMaterial !== 'opaque' ? (
+                      <Palette className="w-4 h-4 text-[var(--accent)]" />
+                    ) : (
+                      <Sun className="w-4 h-4 text-[var(--ink-muted)]" />
+                    )}
+                    <span className="font-medium">{t.name}</span>
+                    <span className="text-xs text-[var(--ink-muted)] truncate">{t.badge}</span>
+                    {themeId === t.id && (
+                      <span className="ml-auto text-xs text-[var(--accent)] font-medium">当前</span>
+                    )}
+                  </Command.Item>
+                ))}
               </Command.Group>
             </Command.List>
           </Command>

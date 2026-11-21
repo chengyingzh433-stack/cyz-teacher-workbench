@@ -209,18 +209,40 @@ export function ExamCenter({
         {
           type: 'bar',
           barMaxWidth: 42,
-          data: analysis.bands.map((b) => ({
-            value: b.count,
-            itemStyle: {
-              borderRadius: [8, 8, 0, 0],
-              color:
-                bandFilter === b.label
-                  ? p.accent
-                  : bandFilter
-                    ? `${p.primary}44`
-                    : p.primary,
-            },
-          })),
+          data: analysis.bands.map((b, idx) => {
+            const r = p.barRadius ?? 8;
+            const baseColor =
+              bandFilter === b.label
+                ? p.accent
+                : bandFilter
+                  ? `${p.primary}44`
+                  : theme.id === 'sakura-campus' || theme.id === 'cozy-pixel'
+                    ? idx % 2 === 0
+                      ? p.primary
+                      : p.secondary
+                    : p.barGradientTo
+                      ? {
+                          type: 'linear' as const,
+                          x: 0,
+                          y: 0,
+                          x2: 0,
+                          y2: 1,
+                          colorStops: [
+                            { offset: 0, color: p.barGradientTo },
+                            { offset: 1, color: p.primary },
+                          ],
+                        }
+                      : p.primary;
+            return {
+              value: b.count,
+              itemStyle: {
+                borderRadius: [r, r, 0, 0],
+                color: baseColor,
+                borderColor: theme.id === 'cozy-pixel' ? '#4a3728' : undefined,
+                borderWidth: theme.id === 'cozy-pixel' ? 1.5 : 0,
+              },
+            };
+          }),
           label: { show: true, position: 'top', color: p.text, fontSize: 11.5, formatter: '{c}人' },
         },
       ],

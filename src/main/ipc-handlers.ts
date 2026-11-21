@@ -31,8 +31,9 @@ export function registerIpcHandlers(deps: {
   aiProxy: MainAiProxy;
   zhixue: ZhixueCompanionManager;
   getWindow: () => BrowserWindow | null;
+  onThemeChanged?: (themeId: string) => void;
 }) {
-  const { vault, keychain, aiProxy, zhixue, getWindow } = deps;
+  const { vault, keychain, aiProxy, zhixue, getWindow, onThemeChanged } = deps;
   const db = () => vault.getDb();
 
   // Vault & Preferences
@@ -40,7 +41,13 @@ export function registerIpcHandlers(deps: {
   ipcMain.handle('vault:getPreferences', wrap(() => vault.getPreferences()));
   ipcMain.handle(
     'vault:updatePreferences',
-    wrap((patch) => vault.updatePreferences(patch)),
+    wrap((patch) => {
+      const updated = vault.updatePreferences(patch);
+      if (patch && typeof patch.themeId === 'string') {
+        onThemeChanged?.(updated.themeId);
+      }
+      return updated;
+    }),
   );
   ipcMain.handle(
     'vault:chooseFolder',

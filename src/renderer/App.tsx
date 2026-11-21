@@ -9,7 +9,7 @@ import type {
   VaultInfo,
 } from '../shared/types';
 import { characterPool } from '../shared/characters';
-import { applyThemeToDocument } from './themes';
+import { applyThemeToDocument, getQuickToggleThemeId } from './themes';
 import { ArtRegistry, Avatar } from './features/classroom/SpriteArt';
 import { ClassroomWorkspace } from './features/classroom/ClassroomWorkspace';
 import { StudentProfileDrawer } from './features/classroom/StudentProfileDrawer';
@@ -193,7 +193,7 @@ export function App() {
   }
 
   return (
-    <div className="h-full flex overflow-hidden bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
+    <div className="theme-canvas h-full flex overflow-hidden bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
       <ArtRegistry />
 
       <Sidebar
@@ -216,9 +216,7 @@ export function App() {
         onCreateClass={() => openClassForm('new')}
         onSelectSpace={setSpace}
         onOpenCmdK={() => setCmdOpen(true)}
-        onToggleTheme={() =>
-          void handleChangeTheme(themeId === 'studio-dark' ? 'studio-light' : 'studio-dark')
-        }
+        onToggleTheme={() => void handleChangeTheme(getQuickToggleThemeId(themeId))}
         onOpenTrash={() => setTrashOpen(true)}
         onOpenSettings={(tab) => {
           setSettingsTab(tab || 'theme');
@@ -230,7 +228,7 @@ export function App() {
       <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         {/* Top Integrated Titlebar Header */}
         <header
-          className={`app-drag px-5 flex items-center justify-between gap-3 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
+          className={`theme-header app-drag px-5 flex items-center justify-between gap-3 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
             isMac ? 'h-12' : 'h-12'
           }`}
         >
@@ -367,6 +365,7 @@ export function App() {
               teacher={teacher}
               members={activeMembers}
               exams={exams}
+              themeId={themeId}
               onOpenProfile={setProfileMemberId}
               onNotify={notify}
             />
@@ -406,7 +405,7 @@ export function App() {
           className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl text-[13px] font-medium shadow-[var(--shadow-lg)] border ${
             toast.tone === 'err'
               ? 'bg-[var(--danger)] text-white border-[var(--danger)]'
-              : 'bg-[var(--ink-primary)] text-[var(--bg-canvas)] border-transparent'
+              : 'bg-[var(--toast-bg)] text-[var(--toast-ink)] border-transparent'
           }`}
         >
           {toast.msg}
@@ -429,9 +428,7 @@ export function App() {
         onSelectSpace={setSpace}
         onSelectStudent={setProfileMemberId}
         onSelectExam={(eid) => setSelectedExamId(eid)}
-        onToggleTheme={() =>
-          void handleChangeTheme(themeId === 'studio-dark' ? 'studio-light' : 'studio-dark')
-        }
+        onSelectTheme={(id) => void handleChangeTheme(id)}
         onOpenSettings={() => {
           setSettingsTab('theme');
           setSettingsOpen(true);

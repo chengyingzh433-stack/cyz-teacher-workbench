@@ -4,7 +4,7 @@ import type { ZhixueState } from '../shared/types';
 
 const api: WorkbenchApi = {
   platform: process.platform,
-  appVersion: '1.0.0',
+  appVersion: '1.1.0',
 
   vault: {
     getInfo: () => ipcRenderer.invoke('vault:getInfo'),

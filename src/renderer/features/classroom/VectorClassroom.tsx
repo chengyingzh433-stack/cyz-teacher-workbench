@@ -21,6 +21,7 @@ export function VectorClassroom({
   teacher,
   plan,
   members,
+  themeId,
   editing,
   selected,
   highlightedId,
@@ -36,6 +37,7 @@ export function VectorClassroom({
   teacher: TeacherProfile;
   plan: SeatPlan;
   members: StudentMember[];
+  themeId: string;
   editing: boolean;
   selected: string | null;
   highlightedId: string | null;
@@ -47,6 +49,9 @@ export function VectorClassroom({
   onDropSeat: (membershipId: string, row: number, col: number) => void;
   onOpenProfile: (membershipId: string) => void;
 }) {
+  const isPixelTheme = themeId === 'cozy-pixel';
+  const isSakuraTheme = themeId === 'sakura-campus';
+  const isAuroraTheme = themeId === 'glass-aurora';
   const woodPatternId = useId();
   const sunGradId = useId();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -153,7 +158,7 @@ export function VectorClassroom({
     <div
       ref={viewportRef}
       onScroll={cancel}
-      className="flex-1 min-w-0 h-full overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--classroom-floor-b)] shadow-[var(--shadow-sm)] flex items-safe-center justify-safe-center relative"
+      className={`theme-card flex-1 min-w-0 h-full overflow-auto rounded-2xl border border-[var(--border-subtle)] shadow-[var(--shadow-sm)] flex items-safe-center justify-safe-center relative bg-[var(--classroom-floor-b)]`}
       style={{ display: 'flex', alignItems: 'safe center', justifyContent: 'safe center' }}
     >
       <svg
@@ -193,7 +198,7 @@ export function VectorClassroom({
               const wy = stageH * ratio;
               return (
                 <g key={i}>
-                  <rect x={4} y={wy} width={10} height={116} rx={3} fill="#93c5fd" opacity="0.5" />
+                  <rect x={4} y={wy} width={10} height={116} rx={3} fill="var(--classroom-window)" opacity="0.58" />
                   <polygon
                     points={`14,${wy} ${stageW * 0.48},${wy + 46} ${stageW * 0.48},${wy + 168} 14,${wy + 116}`}
                     fill={`url(#${sunGradId})`}
@@ -201,6 +206,37 @@ export function VectorClassroom({
                 </g>
               );
             })}
+            {/* Delicate floating sakura petals in spring daylight for sakura-campus theme */}
+            {isSakuraTheme &&
+              [
+                [56, 178, -22],
+                [122, 232, 34],
+                [84, 345, -14],
+                [168, 410, 48],
+                [48, 465, 18],
+                [210, 205, -36],
+              ].map(([px, py, rot], idx) => (
+                <ellipse
+                  key={idx}
+                  cx={px}
+                  cy={py}
+                  rx={5.5}
+                  ry={2.8}
+                  fill="#f48fb1"
+                  opacity={0.42}
+                  transform={`rotate(${rot} ${px} ${py})`}
+                />
+              ))}
+            {/* Warm subtle evening self-study lamp aura for glass-aurora theme */}
+            {isAuroraTheme && (
+              <ellipse
+                cx={stageW / 2}
+                cy={stageH * 0.52}
+                rx={stageW * 0.36}
+                ry={stageH * 0.28}
+                fill="rgba(253, 224, 156, 0.06)"
+              />
+            )}
           </g>
         )}
 
@@ -434,12 +470,22 @@ export function VectorClassroom({
 
                 {/* Crisp Floating Name Plate */}
                 <g className="pointer-events-none">
+                  {isPixelTheme && member && (
+                    <rect
+                      x={10}
+                      y={3}
+                      width={stepX - 16}
+                      height={19}
+                      rx={3}
+                      fill="rgba(74, 55, 40, 0.25)"
+                    />
+                  )}
                   <rect
                     x={8}
                     y={1}
                     width={stepX - 16}
                     height={19}
-                    rx={6}
+                    rx={isPixelTheme ? 3 : 6}
                     fill={
                       isHighlighted
                         ? '#d97706'
@@ -460,7 +506,7 @@ export function VectorClassroom({
                               ? 'var(--border-strong)'
                               : 'transparent'
                     }
-                    strokeWidth="1"
+                    strokeWidth={isPixelTheme ? '1.6' : '1'}
                     strokeDasharray={!member && editing ? '3 2' : undefined}
                   />
                   <text

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { ClassRecord, TeacherProfile, VaultInfo } from '../../shared/types';
 import type { NavSpace } from '../App';
+import { getTheme } from '../themes';
 import { Avatar } from '../features/classroom/SpriteArt';
 
 export function Sidebar({
@@ -83,7 +84,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={`h-full shrink-0 bg-[var(--bg-sidebar)] border-r border-[var(--border-subtle)] flex flex-col select-none transition-[width] duration-150 ${
+      className={`theme-sidebar h-full shrink-0 bg-[var(--bg-sidebar)] border-r border-[var(--border-subtle)] flex flex-col select-none transition-[width] duration-150 ${
         collapsed ? 'w-[68px]' : 'w-[244px]'
       }`}
     >
@@ -333,7 +334,7 @@ export function Sidebar({
             title="一键切换浅色/深色主题"
             className="p-1.5 rounded-lg text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer"
           >
-            {themeId === 'studio-dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {getTheme(themeId).isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
         </div>
       </div>

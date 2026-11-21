@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* ============================================================================
+ * 1. studio-light — 现代暖白工作室（默认旗舰）
+ * ============================================================================ */
 :root,
 [data-theme='studio-light'] {
   color-scheme: light;
@@ -14,6 +17,8 @@
   --ink-primary: #1c1917;
   --ink-secondary: #57534e;
   --ink-muted: #78716c;
+  --toast-bg: #1c1917;
+  --toast-ink: #faf9f6;
 
   --border-subtle: #e7e3da;
   --border-strong: #d4cfc3;
@@ -38,6 +43,7 @@
   --classroom-board: #234137;
   --classroom-board-frame: #8f6846;
   --classroom-podium: #b4845a;
+  --classroom-window: #93c5fd;
   --classroom-sunlight: rgba(255, 248, 224, 0.42);
   --classroom-plate-bg: #ffffff;
   --classroom-plate-border: #c9c2b4;
@@ -46,8 +52,14 @@
   --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
   --shadow-md: 0 8px 24px rgba(28, 25, 23, 0.08);
   --shadow-lg: 0 22px 54px rgba(28, 25, 23, 0.18);
+  --font-display:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Inter, sans-serif;
 }
 
+/* ============================================================================
+ * 2. studio-dark — 深夜护眼工作室
+ * ============================================================================ */
 [data-theme='studio-dark'] {
   color-scheme: dark;
   --bg-canvas: #131517;
@@ -61,6 +73,8 @@
   --ink-primary: #f2efe9;
   --ink-secondary: #b7b3aa;
   --ink-muted: #8a867e;
+  --toast-bg: #f2efe9;
+  --toast-ink: #131517;
 
   --border-subtle: #2b2f36;
   --border-strong: #3a404a;
@@ -85,6 +99,7 @@
   --classroom-board: #183029;
   --classroom-board-frame: #6a4d34;
   --classroom-podium: #7b593c;
+  --classroom-window: #60a5fa;
   --classroom-sunlight: rgba(255, 226, 168, 0.08);
   --classroom-plate-bg: #26292e;
   --classroom-plate-border: #3d434d;
@@ -95,6 +110,276 @@
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
+/* ============================================================================
+ * 3. glass-mist — 晨雾毛玻璃（macOS 原生真透明 vibrancy + Win11 Acrylic）
+ * ============================================================================ */
+[data-theme='glass-mist'] {
+  color-scheme: light;
+  --bg-canvas: transparent;
+  --bg-sidebar: rgba(255, 255, 255, 0.46);
+  --bg-surface: rgba(255, 255, 255, 0.72);
+  --bg-elevated: rgba(255, 255, 255, 0.90);
+  --bg-muted: rgba(241, 246, 252, 0.68);
+  --bg-hover: rgba(255, 255, 255, 0.65);
+  --bg-active: rgba(37, 99, 235, 0.14);
+
+  --ink-primary: #0f172a;
+  --ink-secondary: #334155;
+  --ink-muted: #52637a;
+  --toast-bg: rgba(15, 23, 42, 0.92);
+  --toast-ink: #f8fafc;
+
+  --border-subtle: rgba(255, 255, 255, 0.62);
+  --border-strong: rgba(148, 163, 184, 0.45);
+
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.13);
+  --accent-ink: #ffffff;
+
+  --ok: #0f766e;
+  --ok-soft: rgba(13, 148, 136, 0.13);
+  --warn: #b45309;
+  --warn-soft: rgba(245, 158, 11, 0.15);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.12);
+  --info: #0284c7;
+  --info-soft: rgba(14, 165, 233, 0.14);
+
+  --classroom-floor-a: rgba(247, 250, 255, 0.80);
+  --classroom-floor-b: rgba(238, 245, 253, 0.80);
+  --classroom-wall: rgba(226, 238, 252, 0.85);
+  --classroom-board: #2f4860;
+  --classroom-board-frame: #8ca3ba;
+  --classroom-podium: #889eb5;
+  --classroom-window: #7dd3fc;
+  --classroom-sunlight: rgba(255, 255, 255, 0.56);
+  --classroom-plate-bg: rgba(255, 255, 255, 0.88);
+  --classroom-plate-border: rgba(148, 163, 184, 0.48);
+
+  --grading-canvas: #0f172a;
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.88), 0 12px 32px rgba(15, 23, 42, 0.10);
+  --shadow-lg: inset 0 1px 0 rgba(255, 255, 255, 0.90), 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+/* ============================================================================
+ * 4. glass-aurora — 极光深玻（深夜真毛玻璃 + 极光微光）
+ * ============================================================================ */
+[data-theme='glass-aurora'] {
+  color-scheme: dark;
+  --bg-canvas: transparent;
+  --bg-sidebar: rgba(12, 18, 34, 0.54);
+  --bg-surface: rgba(20, 29, 52, 0.70);
+  --bg-elevated: rgba(18, 26, 46, 0.94);
+  --bg-muted: rgba(30, 41, 68, 0.64);
+  --bg-hover: rgba(51, 65, 98, 0.50);
+  --bg-active: rgba(45, 212, 191, 0.20);
+
+  --ink-primary: #f1f5f9;
+  --ink-secondary: #cbd5e1;
+  --ink-muted: #94a3b8;
+  --toast-bg: rgba(241, 245, 249, 0.95);
+  --toast-ink: #0f172a;
+
+  --border-subtle: rgba(148, 163, 184, 0.20);
+  --border-strong: rgba(148, 163, 184, 0.34);
+
+  --accent: #2dd4bf;
+  --accent-hover: #14b8a6;
+  --accent-soft: rgba(45, 212, 191, 0.22);
+  --accent-ink: #04221f;
+
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.16);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.16);
+  --danger: #fb7185;
+  --danger-soft: rgba(251, 113, 133, 0.16);
+  --info: #38bdf8;
+  --info-soft: rgba(56, 189, 248, 0.16);
+
+  --classroom-floor-a: rgba(28, 28, 42, 0.84);
+  --classroom-floor-b: rgba(22, 23, 35, 0.86);
+  --classroom-wall: rgba(20, 27, 46, 0.88);
+  --classroom-board: #16333a;
+  --classroom-board-frame: #5d6f89;
+  --classroom-podium: #695443;
+  --classroom-window: #38bdf8;
+  --classroom-sunlight: rgba(253, 224, 156, 0.12);
+  --classroom-plate-bg: rgba(24, 34, 58, 0.88);
+  --classroom-plate-border: rgba(148, 163, 184, 0.34);
+
+  --grading-canvas: #080c18;
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 6px 20px rgba(0, 0, 0, 0.28);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 14px 36px rgba(0, 0, 0, 0.42);
+  --shadow-lg: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 28px 64px rgba(0, 0, 0, 0.62);
+}
+
+/* ============================================================================
+ * 5. sakura-campus — 日系樱雪手账（二次元像素小人绝配）
+ * ============================================================================ */
+[data-theme='sakura-campus'] {
+  color-scheme: light;
+  --bg-canvas: #fffbf8;
+  --bg-sidebar: #faf0f3;
+  --bg-surface: #ffffff;
+  --bg-elevated: #fffdfd;
+  --bg-muted: #f7ebef;
+  --bg-hover: #f3e1e7;
+  --bg-active: #fce4ec;
+
+  --ink-primary: #3b2e2b;
+  --ink-secondary: #6d5853;
+  --ink-muted: #98807a;
+  --toast-bg: #3b2e2b;
+  --toast-ink: #fffbf8;
+
+  --border-subtle: #f0dce3;
+  --border-strong: #dfc3cd;
+
+  --accent: #d45c85;
+  --accent-hover: #be4771;
+  --accent-soft: #fdebf1;
+  --accent-ink: #ffffff;
+
+  --ok: #477f62;
+  --ok-soft: #eaf5ef;
+  --warn: #c47624;
+  --warn-soft: #fef4e4;
+  --danger: #c93b4b;
+  --danger-soft: #fdecee;
+  --info: #4b7fb3;
+  --info-soft: #edf4fc;
+
+  --classroom-floor-a: #f8efe4;
+  --classroom-floor-b: #f2e5d7;
+  --classroom-wall: #f6eaed;
+  --classroom-board: #315747;
+  --classroom-board-frame: #b58765;
+  --classroom-podium: #c59571;
+  --classroom-window: #f9a8d4;
+  --classroom-sunlight: rgba(255, 214, 228, 0.42);
+  --classroom-plate-bg: #fffdfd;
+  --classroom-plate-border: #e5c3cf;
+
+  --grading-canvas: #1f191a;
+  --shadow-sm: 0 2px 6px rgba(175, 92, 120, 0.06);
+  --shadow-md: 0 10px 26px rgba(175, 92, 120, 0.10);
+  --shadow-lg: 0 22px 54px rgba(95, 52, 66, 0.18);
+}
+
+/* ============================================================================
+ * 6. editorial-paper — 羊皮纸墨书房（护眼低蓝光 + 红笔朱砂印章）
+ * ============================================================================ */
+[data-theme='editorial-paper'] {
+  color-scheme: light;
+  --bg-canvas: #f5efe2;
+  --bg-sidebar: #ece4d3;
+  --bg-surface: #fbf8f0;
+  --bg-elevated: #fdfaf3;
+  --bg-muted: #e7decb;
+  --bg-hover: #dfd4be;
+  --bg-active: #f4e2de;
+
+  --ink-primary: #2a231d;
+  --ink-secondary: #5a4f43;
+  --ink-muted: #827565;
+  --toast-bg: #2a231d;
+  --toast-ink: #fbf8f0;
+
+  --border-subtle: #ded4c1;
+  --border-strong: #c6b9a2;
+
+  --accent: #b9382c;
+  --accent-hover: #9b2b20;
+  --accent-soft: #f8e6e3;
+  --accent-ink: #fffaf7;
+
+  --ok: #245742;
+  --ok-soft: #e6f1eb;
+  --warn: #a66718;
+  --warn-soft: #f9efd9;
+  --danger: #b42318;
+  --danger-soft: #fbe8e6;
+  --info: #2d557e;
+  --info-soft: #e8f0f7;
+
+  --classroom-floor-a: #eadcc5;
+  --classroom-floor-b: #e2d1b6;
+  --classroom-wall: #e4dac7;
+  --classroom-board: #1e3d31;
+  --classroom-board-frame: #6e4e34;
+  --classroom-podium: #8c6543;
+  --classroom-window: #bfcfdc;
+  --classroom-sunlight: rgba(255, 245, 214, 0.36);
+  --classroom-plate-bg: #fbf8f0;
+  --classroom-plate-border: #bfb29b;
+
+  --grading-canvas: #1c1814;
+  --shadow-sm: 0 1px 1px rgba(42, 35, 29, 0.05);
+  --shadow-md: 0 6px 20px rgba(42, 35, 29, 0.08);
+  --shadow-lg: 0 20px 48px rgba(42, 35, 29, 0.16);
+  --font-display: 'Songti SC', 'STSong', 'Noto Serif SC', Georgia, 'Times New Roman', serif;
+}
+
+/* ============================================================================
+ * 7. cozy-pixel — 复古暖像素学园（星露谷质感 + 轻硬投影）
+ * ============================================================================ */
+[data-theme='cozy-pixel'] {
+  color-scheme: light;
+  --bg-canvas: #faf3e0;
+  --bg-sidebar: #f2e4c6;
+  --bg-surface: #fffcf2;
+  --bg-elevated: #fffdf5;
+  --bg-muted: #efe1c1;
+  --bg-hover: #e7d4ab;
+  --bg-active: #fbe19c;
+
+  --ink-primary: #38291e;
+  --ink-secondary: #634d3a;
+  --ink-muted: #866e56;
+  --toast-bg: #38291e;
+  --toast-ink: #fffcf2;
+
+  --border-subtle: #c8b08a;
+  --border-strong: #4a3728;
+
+  --accent: #237876;
+  --accent-hover: #1b605e;
+  --accent-soft: #d9f0ee;
+  --accent-ink: #fffef9;
+
+  --ok: #2f7d4b;
+  --ok-soft: #e2f5e7;
+  --warn: #c77b0b;
+  --warn-soft: #fef0c7;
+  --danger: #c84628;
+  --danger-soft: #fde7e1;
+  --info: #2d6fa3;
+  --info-soft: #e3f0fa;
+
+  --classroom-floor-a: #f2ddb4;
+  --classroom-floor-b: #e9cf9e;
+  --classroom-wall: #ebd9b7;
+  --classroom-board: #275243;
+  --classroom-board-frame: #6a4429;
+  --classroom-podium: #a66c3c;
+  --classroom-window: #93d5f6;
+  --classroom-sunlight: rgba(255, 248, 200, 0.44);
+  --classroom-plate-bg: #fffcf2;
+  --classroom-plate-border: #4a3728;
+
+  --grading-canvas: #1f1914;
+  --shadow-sm: 2px 2px 0 rgba(74, 55, 40, 0.22);
+  --shadow-md: 3px 3px 0 rgba(74, 55, 40, 0.28);
+  --shadow-lg: 5px 5px 0 rgba(74, 55, 40, 0.34);
+  --pixel-outline: #4a3728;
+}
+
+/* ============================================================================
+ * Global Base & Platform-Aware Surface Materials
+ * ============================================================================ */
 * {
   box-sizing: border-box;
 }
@@ -113,6 +398,103 @@ body,
   color: var(--ink-primary);
   background: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
+}
+
+/* True Native Translucent Glass Backdrops (macOS vibrancy + Win Acrylic/CSS fallback) */
+[data-surface-mode='glass-light'] body,
+[data-surface-mode='glass-light'] #root,
+[data-surface-mode='glass-dark'] body,
+[data-surface-mode='glass-dark'] #root {
+  background: transparent;
+}
+
+/* macOS: native NSVisualEffectView ('under-window') handles real-time GPU frosting behind the window.
+ * Keep webview layers purely clean RGBA tints (no Chromium backdrop-filter saturate>100% over transparent
+ * backing, which triggers Skia premultiplied-alpha color banding on light vibrancy surfaces). */
+[data-theme='glass-mist'][data-platform='darwin'] .theme-canvas {
+  background: rgba(242, 248, 255, 0.34);
+}
+/* Windows / non-macOS: luminous pastel dawn sheen (lets Win11 Acrylic shine & looks complete on Win10) */
+[data-theme='glass-mist']:not([data-platform='darwin']) .theme-canvas {
+  background:
+    radial-gradient(ellipse at 14% 10%, rgba(147, 197, 253, 0.42), transparent 54%),
+    radial-gradient(ellipse at 85% 82%, rgba(253, 230, 196, 0.40), transparent 52%),
+    linear-gradient(145deg, rgba(226, 241, 255, 0.80) 0%, rgba(249, 245, 240, 0.80) 58%, rgba(224, 238, 254, 0.82) 100%);
+}
+
+[data-theme='glass-aurora'][data-platform='darwin'] .theme-canvas {
+  background:
+    radial-gradient(ellipse at 16% 10%, rgba(45, 212, 191, 0.14), transparent 50%),
+    radial-gradient(ellipse at 86% 18%, rgba(129, 140, 248, 0.14), transparent 52%),
+    rgba(10, 15, 30, 0.48);
+}
+[data-theme='glass-aurora']:not([data-platform='darwin']) .theme-canvas {
+  background:
+    radial-gradient(ellipse at 16% 10%, rgba(45, 212, 191, 0.22), transparent 52%),
+    radial-gradient(ellipse at 86% 18%, rgba(129, 140, 248, 0.22), transparent 54%),
+    radial-gradient(ellipse at 50% 96%, rgba(56, 189, 248, 0.14), transparent 48%),
+    linear-gradient(145deg, rgba(9, 14, 28, 0.86) 0%, rgba(14, 23, 44, 0.86) 100%);
+}
+
+/* Header tint for glass themes */
+[data-surface-mode='glass-light'] .theme-header,
+[data-surface-mode='glass-dark'] .theme-header {
+  background: var(--bg-sidebar);
+}
+/* Non-macOS CSS frosted blur for sidebar/header/cards (macOS already uses native Metal vibrancy) */
+[data-surface-mode='glass-light']:not([data-platform='darwin']) .theme-sidebar,
+[data-surface-mode='glass-dark']:not([data-platform='darwin']) .theme-sidebar,
+[data-surface-mode='glass-light']:not([data-platform='darwin']) .theme-header,
+[data-surface-mode='glass-dark']:not([data-platform='darwin']) .theme-header,
+[data-surface-mode='glass-light']:not([data-platform='darwin']) .theme-card,
+[data-surface-mode='glass-dark']:not([data-platform='darwin']) .theme-card,
+[data-surface-mode='glass-light']:not([data-platform='darwin']) .theme-modal,
+[data-surface-mode='glass-dark']:not([data-platform='darwin']) .theme-modal {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+[data-theme='glass-mist'] .theme-card {
+  border-color: rgba(255, 255, 255, 0.78);
+}
+[data-theme='glass-aurora'] .theme-card {
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+/* Editorial Paper: refined serif display & crisp archival dividers */
+[data-theme='editorial-paper'] h1,
+[data-theme='editorial-paper'] h2,
+[data-theme='editorial-paper'] .editorial-serif {
+  font-family: var(--font-display);
+  letter-spacing: 0.015em;
+}
+[data-theme='editorial-paper'] .theme-card {
+  border-radius: 10px;
+}
+
+/* Cozy Pixel: crisp 2px walnut pixel outline & tactile micro offset shadow */
+[data-theme='cozy-pixel'] .theme-card {
+  border: 2px solid var(--pixel-outline);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 rgba(74, 55, 40, 0.22);
+}
+[data-theme='cozy-pixel'] .theme-sidebar {
+  border-right: 2px solid var(--pixel-outline);
+}
+[data-theme='cozy-pixel'] .theme-header {
+  border-bottom: 2px solid var(--pixel-outline);
+}
+[data-theme='cozy-pixel'] .theme-btn-framed {
+  border-width: 2px;
+  border-color: var(--pixel-outline);
+  box-shadow: 2px 2px 0 rgba(74, 55, 40, 0.28);
+}
+[data-theme='cozy-pixel'] .theme-btn-framed:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(74, 55, 40, 0.28);
+}
+[data-theme='cozy-pixel'] .theme-modal {
+  border: 2px solid var(--pixel-outline);
+  box-shadow: 6px 6px 0 rgba(74, 55, 40, 0.30);
 }
 
 .app-drag {
@@ -198,6 +580,12 @@ mark.ocr-diff {
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   width: min(580px, calc(100vw - 32px));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+[data-theme='cozy-pixel'] [cmdk-root] {
+  border: 2px solid var(--pixel-outline);
+  box-shadow: 6px 6px 0 rgba(74, 55, 40, 0.32);
 }
 [cmdk-input] {
   width: 100%;

@@ -4,6 +4,23 @@
 
 ---
 
+## 1.1.0 7 套预设主题引擎、macOS 原生真透明毛玻璃与原创图标 · 2026-11-21
+
+在 v1.0.0 桌面端架构基础上，全面升级多风格主题引擎、系统级窗口材质与原创桌面图标：
+
+- **7 套精雕预设主题一键切换**（[themes/index.ts](src/renderer/themes/index.ts)、[tokens.css](src/renderer/themes/tokens.css)、[SettingsModal.tsx](src/renderer/components/SettingsModal.tsx)）：
+  - 在「现代暖白工作室」「深夜护眼工作室」之外，新增 **「晨雾毛玻璃」「极光深玻」「日系樱雪手账」「羊皮纸墨书房」「复古暖像素学园」** 共 7 套预设风格。
+  - 升级设置页「外观与主题风格」为桌面微缩效果图画廊，并在全局 `⌘K / Ctrl+K` 命令面板支持直接搜索主题名（如“毛玻璃”“樱花”“像素”“羊皮”）1 秒切换；侧栏快捷按钮智能配对深浅切换（如「晨雾毛玻璃 ↔ 极光深玻」）。
+- **macOS 原生真透明毛玻璃 + Windows 智能适配**（[src/main/index.ts](src/main/index.ts)、[theme-meta.ts](src/shared/theme-meta.ts)）：
+  - **macOS**：选择「晨雾毛玻璃」或「极光深玻」时自动启用原生 `vibrancy: 'under-window'` 与 `nativeTheme.themeSource` 联动，实现 120Hz 硬件级实景透出桌面壁纸；切回不透明主题自动关闭透明材质。
+  - **Windows**：在 Windows 11 上自动启用原生 `Acrylic` 磨砂材质，在 Windows 10 上优雅回退至高通透柔光弥散毛玻璃与 CSS `backdrop-filter: blur(20px)`，避免黑底或花屏。
+- **矢量教室与 ECharts 深度联动**（[VectorClassroom.tsx](src/renderer/features/classroom/VectorClassroom.tsx)、[ExamCenter.tsx](src/renderer/features/exams/ExamCenter.tsx)）：
+  - 每套主题独立适配教室地板、窗光与黑板质感（樱花主题新增春日粉光与微飘花瓣、极光深玻新增晚自习暖灯氛围、像素学园新增 2px 胡桃像素描边与轻硬投影名牌、羊皮书房启用宋体书卷排印与朱砂红笔强调色）；ECharts 柱状图联动切换冰川蓝/极光青渐变、樱花抹茶交替与像素描边柱条。
+- **原创桌面应用图标**（`build/icon.icns`、`build/icon.ico`、`build/icon.png`）：
+  - 定制「温润米纸 × 橡木框黑板 × 松林绿成长星轨 × 黄铜粉笔」Apple 超椭圆透明图标，完整嵌入 macOS `.dmg` 与 Windows `.exe`。
+
+---
+
 ## 1.0.0 独立桌面端架构与工作室级 UI 全面重构 · 2026-11-21
 
 依据甲方审查与正式技术选型记录（[decisions-desktop-tech-stack.md](docs/decisions-desktop-tech-stack.md)），彻底抛弃 16.9 MB 单文件 HTML + 浏览器 IndexedDB 的旧形态，重构为 **Electron 45 + Node.js 24 原生 `node:sqlite` + React 19 + Tailwind CSS v4 + Apache ECharts 6** 独立跨平台桌面客户端（首选 macOS `.dmg`，同时从 macOS 零原生依赖交叉构建 Windows 绿色版 `.zip`）。

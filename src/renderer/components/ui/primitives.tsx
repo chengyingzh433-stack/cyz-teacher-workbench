@@ -25,15 +25,15 @@ export function Button({
 }) {
   const variants: Record<ButtonVariant, string> = {
     default:
-      'bg-[var(--bg-surface)] text-[var(--ink-primary)] border border-[var(--border-strong)] hover:bg-[var(--bg-hover)] shadow-[var(--shadow-sm)]',
+      'theme-btn-framed bg-[var(--bg-surface)] text-[var(--ink-primary)] border border-[var(--border-strong)] hover:bg-[var(--bg-hover)] shadow-[var(--shadow-sm)]',
     primary:
-      'bg-[var(--accent)] text-[var(--accent-ink)] border border-[var(--accent)] hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]',
+      'theme-btn-framed bg-[var(--accent)] text-[var(--accent-ink)] border border-[var(--accent)] hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]',
     soft:
       'bg-[var(--accent-soft)] text-[var(--accent)] border border-transparent hover:brightness-95',
     ghost:
       'bg-transparent text-[var(--ink-secondary)] border border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--ink-primary)]',
     danger:
-      'bg-[var(--danger)] text-white border border-[var(--danger)] hover:brightness-95',
+      'theme-btn-framed bg-[var(--danger)] text-white border border-[var(--danger)] hover:brightness-95',
     'danger-ghost':
       'bg-transparent text-[var(--danger)] border border-transparent hover:bg-[var(--danger-soft)]',
   };
@@ -98,7 +98,7 @@ export function Card({
   return (
     <div
       className={cn(
-        'bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-[var(--shadow-sm)]',
+        'theme-card bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-[var(--shadow-sm)]',
         className,
       )}
     >
@@ -285,7 +285,7 @@ export function Modal({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
         <Dialog.Content
           className={cn(
-            'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100vw-32px)] max-h-[calc(100vh-48px)] flex flex-col bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden focus:outline-none',
+            'theme-modal fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100vw-32px)] max-h-[calc(100vh-48px)] flex flex-col bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden focus:outline-none',
             widths[size],
           )}
         >
@@ -343,7 +343,7 @@ export function Drawer({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" />
         <Dialog.Content
           className={cn(
-            'fixed right-0 top-0 bottom-0 z-50 w-full flex flex-col bg-[var(--bg-elevated)] border-l border-[var(--border-strong)] shadow-[var(--shadow-lg)] focus:outline-none',
+            'theme-modal fixed right-0 top-0 bottom-0 z-50 w-full flex flex-col bg-[var(--bg-elevated)] border-l border-[var(--border-strong)] shadow-[var(--shadow-lg)] focus:outline-none',
             width,
           )}
         >
