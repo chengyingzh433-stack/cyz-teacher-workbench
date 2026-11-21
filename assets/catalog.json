@@ -1,0 +1,630 @@
+{
+  "format": "cyz-art-catalog",
+  "version": 1,
+  "provenance": "User references and transparent assets prepared in this conversation; reused by user instruction on 2026-11-02. No application code is included.",
+  "rectFormat": "[x, y, width, height] in source image pixels",
+  "teacherDefaults": {
+    "male": "hashira-03",
+    "female": "hashira-06"
+  },
+  "assets": [
+    {
+      "path": "pixel/touhou.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2057171,
+      "sha256": "71cc20b060c6199e1c9c9c29587e18b428f6b14952e480e9eb0413bba26e1818",
+      "bundled": true
+    },
+    {
+      "path": "pixel/mygo.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2133007,
+      "sha256": "dccd9218eeac7af1e24970cf86c6dab13daf89d27e093ccdc467badd224479e6",
+      "bundled": true
+    },
+    {
+      "path": "pixel/ave.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1956243,
+      "sha256": "5c13510a2ca86ea31b2e9608e46a11f268bc1d7c78ec019bb77418ac2b7bbc61",
+      "bundled": true
+    },
+    {
+      "path": "pixel/trio.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1744566,
+      "sha256": "504302675c6c81819caef8e040ef9446034d6050f1045db8cd6667918daccd02",
+      "bundled": true
+    },
+    {
+      "path": "pixel/hashira.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2140537,
+      "sha256": "68e83364683e973bc9a2d8136aaa27e5ff83ea809fdfd745f1428b132803b6e7",
+      "bundled": true
+    },
+    {
+      "path": "pixel/desk.png",
+      "width": 1451,
+      "height": 1084,
+      "bytes": 445568,
+      "sha256": "7b5079bc8dd89935360ae5fb0fdc8486a7aa0885f5c026d0a58973a83f345815",
+      "bundled": true
+    },
+    {
+      "path": "pixel/room.png",
+      "width": 1024,
+      "height": 765,
+      "bytes": 1002357,
+      "sha256": "a6b4993f49c052c889cad9b846a2c6b965c22deaa958483e540c5193db0926a9",
+      "bundled": true
+    }
+  ],
+  "characters": [
+    {
+      "id": "touhou-01",
+      "name": "博丽灵梦",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        10,
+        96,
+        244,
+        326
+      ],
+      "back": [
+        12,
+        564,
+        242,
+        331
+      ]
+    },
+    {
+      "id": "touhou-02",
+      "name": "雾雨魔理沙",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        256,
+        68,
+        256,
+        354
+      ],
+      "back": [
+        256,
+        546,
+        256,
+        348
+      ]
+    },
+    {
+      "id": "touhou-03",
+      "name": "十六夜咲夜",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        512,
+        91,
+        256,
+        331
+      ],
+      "back": [
+        525,
+        557,
+        221,
+        338
+      ]
+    },
+    {
+      "id": "touhou-04",
+      "name": "蕾米莉亚",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        768,
+        96,
+        256,
+        326
+      ],
+      "back": [
+        768,
+        571,
+        256,
+        324
+      ]
+    },
+    {
+      "id": "touhou-05",
+      "name": "芙兰朵露",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        1024,
+        96,
+        256,
+        326
+      ],
+      "back": [
+        1024,
+        571,
+        256,
+        324
+      ]
+    },
+    {
+      "id": "touhou-06",
+      "name": "琪露诺",
+      "gender": "female",
+      "sheetId": "touhou",
+      "front": [
+        1307,
+        101,
+        219,
+        321
+      ],
+      "back": [
+        1306,
+        570,
+        220,
+        325
+      ]
+    },
+    {
+      "id": "mygo-01",
+      "name": "高松灯",
+      "gender": "female",
+      "sheetId": "mygo",
+      "front": [
+        41,
+        117,
+        263,
+        350
+      ],
+      "back": [
+        41,
+        531,
+        263,
+        366
+      ]
+    },
+    {
+      "id": "mygo-02",
+      "name": "长崎爽世",
+      "gender": "female",
+      "sheetId": "mygo",
+      "front": [
+        330,
+        116,
+        275,
+        351
+      ],
+      "back": [
+        327,
+        531,
+        278,
+        366
+      ]
+    },
+    {
+      "id": "mygo-03",
+      "name": "椎名立希",
+      "gender": "female",
+      "sheetId": "mygo",
+      "front": [
+        628,
+        116,
+        277,
+        351
+      ],
+      "back": [
+        627,
+        529,
+        278,
+        368
+      ]
+    },
+    {
+      "id": "mygo-04",
+      "name": "千早爱音",
+      "gender": "female",
+      "sheetId": "mygo",
+      "front": [
+        930,
+        116,
+        273,
+        351
+      ],
+      "back": [
+        928,
+        529,
+        277,
+        368
+      ]
+    },
+    {
+      "id": "mygo-05",
+      "name": "要乐奈",
+      "gender": "female",
+      "sheetId": "mygo",
+      "front": [
+        1232,
+        116,
+        265,
+        352
+      ],
+      "back": [
+        1232,
+        529,
+        266,
+        368
+      ]
+    },
+    {
+      "id": "ave-01",
+      "name": "三角初华",
+      "gender": "female",
+      "sheetId": "ave",
+      "front": [
+        51,
+        69,
+        253,
+        328
+      ],
+      "back": [
+        50,
+        542,
+        254,
+        346
+      ]
+    },
+    {
+      "id": "ave-02",
+      "name": "若叶睦",
+      "gender": "female",
+      "sheetId": "ave",
+      "front": [
+        344,
+        60,
+        259,
+        336
+      ],
+      "back": [
+        343,
+        540,
+        261,
+        347
+      ]
+    },
+    {
+      "id": "ave-03",
+      "name": "八幡海铃",
+      "gender": "female",
+      "sheetId": "ave",
+      "front": [
+        647,
+        69,
+        243,
+        328
+      ],
+      "back": [
+        645,
+        540,
+        248,
+        348
+      ]
+    },
+    {
+      "id": "ave-04",
+      "name": "祐天寺若麦",
+      "gender": "female",
+      "sheetId": "ave",
+      "front": [
+        948,
+        69,
+        281,
+        328
+      ],
+      "back": [
+        948,
+        542,
+        228,
+        346
+      ]
+    },
+    {
+      "id": "ave-05",
+      "name": "丰川祥子",
+      "gender": "female",
+      "sheetId": "ave",
+      "front": [
+        1229,
+        69,
+        267,
+        328
+      ],
+      "back": [
+        1229,
+        542,
+        267,
+        346
+      ]
+    },
+    {
+      "id": "trio-01",
+      "name": "灶门炭治郎",
+      "gender": "male",
+      "sheetId": "trio",
+      "front": [
+        242,
+        22,
+        291,
+        417
+      ],
+      "back": [
+        247,
+        533,
+        282,
+        435
+      ]
+    },
+    {
+      "id": "trio-02",
+      "name": "灶门祢豆子",
+      "gender": "female",
+      "sheetId": "trio",
+      "front": [
+        599,
+        51,
+        339,
+        388
+      ],
+      "back": [
+        612,
+        561,
+        317,
+        407
+      ]
+    },
+    {
+      "id": "trio-03",
+      "name": "我妻善逸",
+      "gender": "male",
+      "sheetId": "trio",
+      "front": [
+        993,
+        40,
+        297,
+        399
+      ],
+      "back": [
+        997,
+        549,
+        288,
+        419
+      ]
+    },
+    {
+      "id": "hashira-01",
+      "name": "富冈义勇",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        112,
+        16,
+        175,
+        230
+      ],
+      "back": [
+        126,
+        262,
+        153,
+        201
+      ]
+    },
+    {
+      "id": "hashira-02",
+      "name": "蝴蝶忍",
+      "gender": "female",
+      "sheetId": "hashira",
+      "front": [
+        406,
+        12,
+        145,
+        234
+      ],
+      "back": [
+        414,
+        265,
+        136,
+        198
+      ]
+    },
+    {
+      "id": "hashira-03",
+      "name": "炼狱杏寿郎",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        678,
+        15,
+        170,
+        231
+      ],
+      "back": [
+        691,
+        259,
+        149,
+        205
+      ]
+    },
+    {
+      "id": "hashira-04",
+      "name": "宇髓天元",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        972,
+        15,
+        146,
+        231
+      ],
+      "back": [
+        982,
+        257,
+        132,
+        207
+      ]
+    },
+    {
+      "id": "hashira-05",
+      "name": "时透无一郎",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        1240,
+        21,
+        172,
+        225
+      ],
+      "back": [
+        1246,
+        264,
+        160,
+        199
+      ]
+    },
+    {
+      "id": "hashira-06",
+      "name": "甘露寺蜜璃",
+      "gender": "female",
+      "sheetId": "hashira",
+      "front": [
+        116,
+        486,
+        173,
+        224
+      ],
+      "back": [
+        122,
+        756,
+        162,
+        217
+      ]
+    },
+    {
+      "id": "hashira-07",
+      "name": "伊黑小芭内",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        399,
+        486,
+        175,
+        224
+      ],
+      "back": [
+        411,
+        755,
+        148,
+        218
+      ]
+    },
+    {
+      "id": "hashira-08",
+      "name": "不死川实弥",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        681,
+        474,
+        171,
+        238
+      ],
+      "back": [
+        684,
+        751,
+        163,
+        223
+      ]
+    },
+    {
+      "id": "hashira-09",
+      "name": "悲鸣屿行冥",
+      "gender": "male",
+      "sheetId": "hashira",
+      "front": [
+        964,
+        474,
+        167,
+        238
+      ],
+      "back": [
+        972,
+        747,
+        154,
+        227
+      ]
+    },
+    {
+      "id": "hashira-10",
+      "name": "栗花落香奈乎",
+      "gender": "female",
+      "sheetId": "hashira",
+      "front": [
+        1249,
+        484,
+        156,
+        227
+      ],
+      "back": [
+        1264,
+        755,
+        146,
+        218
+      ]
+    }
+  ],
+  "scene": {
+    "desk": {
+      "sheetId": "desk",
+      "rect": [
+        440,
+        180,
+        670,
+        800
+      ]
+    },
+    "chairFront": {
+      "sheetId": "desk",
+      "rect": [
+        580,
+        595,
+        320,
+        380
+      ]
+    },
+    "room": {
+      "sheetId": "room",
+      "rect": [
+        0,
+        0,
+        1024,
+        765
+      ]
+    },
+    "podium": {
+      "sheetId": "room",
+      "rect": [
+        440,
+        214,
+        149,
+        132
+      ]
+    }
+  }
+}

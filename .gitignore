@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build & packaging outputs
+dist/
+out/
+release/
+build/
+.dev/
+
+# Local databases & test vaults
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
