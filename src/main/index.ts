@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { app, BrowserWindow, nativeTheme, net, protocol, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, net, protocol, safeStorage } from 'electron';
 import { getThemeWindowMeta } from '../shared/theme-meta';
 import { VaultManager } from './vault';
 import { AiKeychainStore } from './keychain';
@@ -151,7 +151,14 @@ if (!gotLock) {
   app.whenReady().then(() => {
     const userData = app.getPath('userData');
     vault = new VaultManager(userData);
-    vault.open();
+    try {
+      vault.open();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      dialog.showErrorBox('无法打开本地资料库', msg);
+      app.quit();
+      return;
+    }
 
     const keychain = new AiKeychainStore(userData, safeStorage);
     const aiProxy = new MainAiProxy(keychain);
