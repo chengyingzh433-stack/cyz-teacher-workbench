@@ -1,0 +1,211 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
+import { AppError, type AppPreferences, type VaultInfo } from '../shared/types';
+import { openVaultDatabase, VAULT_SCHEMA_VERSION } from './db';
+import { computePhotosUsage } from './photo-store';
+
+interface VaultManifest {
+  name: string;
+  schemaVersion: number;
+  createdAt: string;
+}
+
+export class VaultManager {
+  private db: DatabaseSync | null = null;
+  private vaultPath = '';
+  private lockPath = '';
+  private prefsPath: string;
+  private prefs: AppPreferences;
+
+  constructor(private userDataDir: string) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+    this.prefsPath = path.join(userDataDir, 'preferences.json');
+    this.prefs = this.loadPrefs();
+  }
+
+  static defaultVaultPath(): string {
+    return path.join(os.homedir(), 'Documents', 'cyz教师工作台');
+  }
+
+  private loadPrefs(): AppPreferences {
+    const fallback: AppPreferences = {
+      themeId: 'studio-light',
+      vaultPath: VaultManager.defaultVaultPath(),
+      sidebarCollapsed: false,
+      recentVaults: [],
+    };
+    try {
+      if (!fs.existsSync(this.prefsPath)) return fallback;
+      const parsed = JSON.parse(fs.readFileSync(this.prefsPath, 'utf8')) as Partial<AppPreferences>;
+      return {
+        themeId: typeof parsed.themeId === 'string' && parsed.themeId ? parsed.themeId : fallback.themeId,
+        vaultPath:
+          typeof parsed.vaultPath === 'string' && parsed.vaultPath ? parsed.vaultPath : fallback.vaultPath,
+        sidebarCollapsed: Boolean(parsed.sidebarCollapsed),
+        recentVaults: Array.isArray(parsed.recentVaults)
+          ? parsed.recentVaults.filter((x): x is string => typeof x === 'string').slice(0, 8)
+          : [],
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  private savePrefs() {
+    fs.writeFileSync(this.prefsPath, JSON.stringify(this.prefs, null, 2), 'utf8');
+  }
+
+  getPreferences(): AppPreferences {
+    return { ...this.prefs, recentVaults: [...this.prefs.recentVaults] };
+  }
+
+  updatePreferences(patch: Partial<AppPreferences>): AppPreferences {
+    this.prefs = {
+      ...this.prefs,
+      ...(patch.themeId ? { themeId: patch.themeId } : {}),
+      ...(patch.sidebarCollapsed !== undefined ? { sidebarCollapsed: patch.sidebarCollapsed } : {}),
+    };
+    this.savePrefs();
+    return this.getPreferences();
+  }
+
+  open(dirPath?: string): VaultInfo {
+    const target = path.resolve(dirPath || this.prefs.vaultPath || VaultManager.defaultVaultPath());
+    fs.mkdirSync(target, { recursive: true });
+    fs.mkdirSync(path.join(target, 'photos'), { recursive: true });
+
+    const lockFile = path.join(target, '.workbench.lock');
+    if (this.vaultPath !== target) {
+      this.checkAndAcquireLock(lockFile);
+      this.close();
+      this.lockPath = lockFile;
+    }
+
+    const manifestPath = path.join(target, 'vault.json');
+    if (!fs.existsSync(manifestPath)) {
+      const manifest: VaultManifest = {
+        name: path.basename(target) || 'cyz教师工作台',
+        schemaVersion: VAULT_SCHEMA_VERSION,
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+    }
+
+    const dbPath = path.join(target, 'workbench.sqlite');
+    this.db = openVaultDatabase(dbPath);
+    this.vaultPath = target;
+
+    const recent = [target, ...this.prefs.recentVaults.filter((x) => x !== target)].slice(0, 8);
+    this.prefs = { ...this.prefs, vaultPath: target, recentVaults: recent };
+    this.savePrefs();
+
+    return this.getInfo();
+  }
+
+  private checkAndAcquireLock(lockFile: string) {
+    if (fs.existsSync(lockFile)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(lockFile, 'utf8')) as {
+          pid?: number;
+          host?: string;
+        };
+        if (raw.host === os.hostname() && typeof raw.pid === 'number' && raw.pid !== process.pid) {
+          let alive = false;
+          try {
+            process.kill(raw.pid, 0);
+            alive = true;
+          } catch {
+            alive = false;
+          }
+          if (alive) {
+            throw new AppError(
+              'VAULT_LOCKED',
+              '该资料库正在被另一个窗口使用，请先关闭另一个窗口，避免云盘同步冲突',
+            );
+          }
+        }
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+      }
+    }
+    fs.writeFileSync(
+      lockFile,
+      JSON.stringify({ pid: process.pid, host: os.hostname(), openedAt: new Date().toISOString() }),
+      'utf8',
+    );
+  }
+
+  getDb(): DatabaseSync {
+    if (!this.db) this.open();
+    return this.db!;
+  }
+
+  getPath(): string {
+    if (!this.vaultPath) this.open();
+    return this.vaultPath;
+  }
+
+  getInfo(): VaultInfo {
+    const dir = this.getPath();
+    const manifestPath = path.join(dir, 'vault.json');
+    let manifest: VaultManifest = {
+      name: path.basename(dir),
+      schemaVersion: VAULT_SCHEMA_VERSION,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as VaultManifest;
+    } catch {
+      // use fallback
+    }
+    const dbPath = path.join(dir, 'workbench.sqlite');
+    const dbBytes = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+    const photos = computePhotosUsage(dir);
+    return {
+      path: dir,
+      name: manifest.name,
+      schemaVersion: manifest.schemaVersion,
+      createdAt: manifest.createdAt,
+      dbBytes,
+      photoCount: photos.count,
+      photoBytes: photos.bytes,
+    };
+  }
+
+  exportCopyTo(destDir: string): string {
+    const src = this.getPath();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const target = path.join(destDir, `cyz教师工作台备份-${stamp}`);
+    fs.mkdirSync(target, { recursive: true });
+    for (const file of ['vault.json', 'workbench.sqlite']) {
+      const f = path.join(src, file);
+      if (fs.existsSync(f)) fs.copyFileSync(f, path.join(target, file));
+    }
+    const photosSrc = path.join(src, 'photos');
+    if (fs.existsSync(photosSrc)) {
+      fs.cpSync(photosSrc, path.join(target, 'photos'), { recursive: true });
+    }
+    return target;
+  }
+
+  close() {
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch {
+        // ignore
+      }
+      this.db = null;
+    }
+    if (this.lockPath && fs.existsSync(this.lockPath)) {
+      try {
+        fs.unlinkSync(this.lockPath);
+      } catch {
+        // ignore
+      }
+    }
+    this.lockPath = '';
+  }
+}

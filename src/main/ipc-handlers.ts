@@ -1,0 +1,227 @@
+import fs from 'node:fs';
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { breakdownReferenceAnswer, runBlindScanStage, runScoringStage } from '../shared/ai-engine';
+import { inferMapping } from '../shared/gradebook/recognize';
+import { parseGradeWorkbook } from '../shared/gradebook/workbook';
+import { buildExamCsv, buildExamHtmlReport } from '../shared/gradebook/export';
+import type { VaultManager } from './vault';
+import type { AiKeychainStore } from './keychain';
+import type { MainAiProxy } from './ai-proxy';
+import type { ZhixueCompanionManager } from './zhixue-view';
+import * as classesRepo from './repositories/classes';
+import * as seatingRepo from './repositories/seating';
+import * as examsRepo from './repositories/exams';
+import * as gradingRepo from './repositories/grading';
+import * as trashRepo from './repositories/trash';
+
+function wrap<T extends unknown[], R>(fn: (...args: T) => R | Promise<R>) {
+  return async (_event: Electron.IpcMainInvokeEvent, ...args: T): Promise<R> => {
+    try {
+      return await fn(...args);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(msg);
+    }
+  };
+}
+
+export function registerIpcHandlers(deps: {
+  vault: VaultManager;
+  keychain: AiKeychainStore;
+  aiProxy: MainAiProxy;
+  zhixue: ZhixueCompanionManager;
+  getWindow: () => BrowserWindow | null;
+}) {
+  const { vault, keychain, aiProxy, zhixue, getWindow } = deps;
+  const db = () => vault.getDb();
+
+  // Vault & Preferences
+  ipcMain.handle('vault:getInfo', wrap(() => vault.getInfo()));
+  ipcMain.handle('vault:getPreferences', wrap(() => vault.getPreferences()));
+  ipcMain.handle(
+    'vault:updatePreferences',
+    wrap((patch) => vault.updatePreferences(patch)),
+  );
+  ipcMain.handle(
+    'vault:chooseFolder',
+    wrap(async () => {
+      const win = getWindow();
+      const res = await dialog.showOpenDialog(win || undefined!, {
+        title: '选择或新建教师工作台资料库文件夹',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (res.canceled || !res.filePaths[0]) return null;
+      return vault.open(res.filePaths[0]);
+    }),
+  );
+  ipcMain.handle('vault:switchVault', wrap((dirPath: string) => vault.open(dirPath)));
+  ipcMain.handle('vault:openInFinder', wrap(async () => { await shell.openPath(vault.getPath()); }));
+  ipcMain.handle(
+    'vault:exportSnapshot',
+    wrap(async () => {
+      const win = getWindow();
+      const res = await dialog.showOpenDialog(win || undefined!, {
+        title: '选择备份文件夹存放位置',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (res.canceled || !res.filePaths[0]) return null;
+      const exported = vault.exportCopyTo(res.filePaths[0]);
+      return { path: exported };
+    }),
+  );
+
+  // Teacher
+  ipcMain.handle('teacher:get', wrap(() => classesRepo.getTeacher(db())));
+  ipcMain.handle('teacher:save', wrap((p) => classesRepo.saveTeacher(db(), p)));
+
+  // Classes & Roster
+  ipcMain.handle('classes:list', wrap(() => classesRepo.listClasses(db())));
+  ipcMain.handle('classes:create', wrap((input) => classesRepo.createClass(db(), input)));
+  ipcMain.handle('classes:update', wrap((id, input) => classesRepo.updateClass(db(), id, input)));
+  ipcMain.handle('classes:setStatus', wrap((id, status) => classesRepo.setClassStatus(db(), id, status)));
+  ipcMain.handle('classes:softDelete', wrap((id) => classesRepo.softDeleteClass(db(), id)));
+  ipcMain.handle('classes:createDemo', wrap(() => classesRepo.createDemoClass(db())));
+
+  ipcMain.handle('roster:list', wrap((classId, inc) => classesRepo.listRoster(db(), classId, inc)));
+  ipcMain.handle(
+    'roster:saveStudent',
+    wrap((classId, input, mid) => classesRepo.saveStudent(db(), classId, input, mid)),
+  );
+  ipcMain.handle(
+    'roster:batchImport',
+    wrap((classId, rows) => classesRepo.batchImportRoster(db(), classId, rows)),
+  );
+  ipcMain.handle('roster:setStatus', wrap((mid, st) => classesRepo.setMembershipStatus(db(), mid, st)));
+  ipcMain.handle('roster:getGrowthProfile', wrap((mid) => classesRepo.getStudentGrowthProfile(db(), mid)));
+
+  // Seating
+  ipcMain.handle('seating:listPlans', wrap((cid) => seatingRepo.listSeatPlans(db(), cid)));
+  ipcMain.handle(
+    'seating:createPlan',
+    wrap((cid, name, copyId) => seatingRepo.createSeatPlan(db(), cid, name, copyId)),
+  );
+  ipcMain.handle('seating:renamePlan', wrap((pid, name) => seatingRepo.renameSeatPlan(db(), pid, name)));
+  ipcMain.handle('seating:deletePlan', wrap((pid) => seatingRepo.deleteSeatPlan(db(), pid)));
+  ipcMain.handle(
+    'seating:savePlanLayout',
+    wrap((pid, rows, cols, assigns) => seatingRepo.saveSeatPlanLayout(db(), pid, rows, cols, assigns)),
+  );
+  ipcMain.handle('seating:arrangeByExam', wrap((params) => seatingRepo.arrangePlanByExam(db(), params)));
+
+  // Unified Exam Center
+  ipcMain.handle('exams:list', wrap((cid) => examsRepo.listExams(db(), cid)));
+  ipcMain.handle('exams:getDetail', wrap((eid) => examsRepo.getExamDetail(db(), eid)));
+  ipcMain.handle('exams:create', wrap((input) => examsRepo.createExam(db(), input)));
+  ipcMain.handle('exams:updateMeta', wrap((eid, input) => examsRepo.updateExamMeta(db(), eid, input)));
+  ipcMain.handle('exams:softDelete', wrap((eid) => examsRepo.softDeleteExam(db(), eid)));
+  ipcMain.handle(
+    'exams:parseWorkbook',
+    wrap((payload: { bytes: number[]; fileName: string; encoding?: string }) => {
+      const book = parseGradeWorkbook(new Uint8Array(payload.bytes), payload.fileName, payload.encoding || 'utf-8');
+      const first = book.sheets[0] || { name: 'Sheet1', rows: [], merges: [], warnings: [] };
+      return { book, inferred: inferMapping(first) };
+    }),
+  );
+  ipcMain.handle('exams:commitImport', wrap((payload) => examsRepo.commitGradeImport(db(), payload)));
+  ipcMain.handle('exams:updateScoreCell', wrap((payload) => examsRepo.updateScoreCell(db(), payload)));
+  ipcMain.handle('exams:getClassTrends', wrap((cid, hint) => examsRepo.getClassTrends(db(), cid, hint)));
+  ipcMain.handle(
+    'exams:exportReport',
+    wrap(async (payload: {
+      examId: string;
+      format: 'csv' | 'html';
+      identified: boolean;
+      passPercent: number;
+      excellentPercent: number;
+    }) => {
+      const detail = examsRepo.getExamDetail(db(), payload.examId);
+      const members = classesRepo.listRoster(db(), detail.exam.classId, false);
+      const ext = payload.format;
+      const content =
+        ext === 'csv'
+          ? buildExamCsv(detail, members, payload.identified)
+          : buildExamHtmlReport(detail, members, payload.identified, payload.passPercent, payload.excellentPercent);
+
+      const safeTitle = detail.exam.title.replace(/[\\/:*?"<>|]/g, '_');
+      const win = getWindow();
+      const res = await dialog.showSaveDialog(win || undefined!, {
+        title: '导出成绩分析报告',
+        defaultPath: `${safeTitle}-${payload.identified ? '实名版' : '匿名版'}.${ext}`,
+        filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+      });
+      if (res.canceled || !res.filePath) return null;
+      fs.writeFileSync(res.filePath, content, 'utf8');
+      return { path: res.filePath };
+    }),
+  );
+
+  // Grading (attached to unified exam)
+  ipcMain.handle('grading:saveItem', wrap((p) => gradingRepo.saveGradingItem(db(), p)));
+  ipcMain.handle('grading:freezeRubric', wrap((rid) => gradingRepo.freezeRubric(db(), rid)));
+  ipcMain.handle('grading:deleteItem', wrap((iid) => gradingRepo.deleteGradingItem(db(), iid)));
+  ipcMain.handle(
+    'grading:uploadPhoto',
+    wrap((p: { examId: string; role: 'answer' | 'reference'; bytes: number[]; mime: string; width: number; height: number }) =>
+      gradingRepo.registerPhotoAsset(db(), vault.getPath(), {
+        ...p,
+        bytes: new Uint8Array(p.bytes),
+      }),
+    ),
+  );
+  ipcMain.handle('grading:listSubmissions', wrap((eid, iid) => gradingRepo.listSubmissions(db(), eid, iid)));
+  ipcMain.handle('grading:saveSubmission', wrap((p) => gradingRepo.saveSubmission(db(), p)));
+  ipcMain.handle('grading:softDeleteSubmission', wrap((sid) => gradingRepo.softDeleteSubmission(db(), sid)));
+  ipcMain.handle('grading:confirmDecision', wrap((p) => gradingRepo.confirmGradingDecision(db(), p)));
+  ipcMain.handle('grading:saveKnowledgePoints', wrap((eid, names) => gradingRepo.saveKnowledgePoints(db(), eid, names)));
+  ipcMain.handle('grading:saveItemKnowledgeMap', wrap((iid, allocs) => gradingRepo.saveItemKnowledgeMap(db(), iid, allocs)));
+  ipcMain.handle('grading:getKnowledgeStats', wrap((eid) => gradingRepo.getKnowledgeStats(db(), eid)));
+
+  // Trash Bin
+  ipcMain.handle('trash:list', wrap(() => trashRepo.listTrash(db())));
+  ipcMain.handle('trash:restore', wrap((k, id) => trashRepo.restoreTrashItem(db(), k, id)));
+  ipcMain.handle('trash:purge', wrap((k, id) => trashRepo.purgeTrashItem(db(), vault.getPath(), k, id)));
+  ipcMain.handle('trash:emptyAll', wrap(() => trashRepo.emptyAllTrash(db(), vault.getPath())));
+
+  // AI & Keychain (zero-CORS main process)
+  ipcMain.handle('ai:getConfig', wrap(() => keychain.getView()));
+  ipcMain.handle('ai:saveConfig', wrap((input) => keychain.save(input)));
+  ipcMain.handle('ai:clearKeys', wrap(() => keychain.clearAllKeys()));
+  ipcMain.handle('ai:listModels', wrap((p) => aiProxy.listModels(p)));
+  ipcMain.handle(
+    'ai:breakdownReference',
+    wrap((p) =>
+      breakdownReferenceAnswer(aiProxy, {
+        prompt: p.prompt,
+        referenceAnswer: p.referenceAnswer,
+        referenceImages: p.referenceImageDataUrls,
+        totalScoreHint: p.totalScoreHint,
+      }),
+    ),
+  );
+  ipcMain.handle('ai:runBlindScan', wrap((p) => runBlindScanStage(aiProxy, p)));
+  ipcMain.handle(
+    'ai:runScoring',
+    wrap((p) => {
+      const rubric = gradingRepo.getRubricById(db(), p.rubricId);
+      return runScoringStage(aiProxy, {
+        scan: p.scan,
+        scanText: p.scanText,
+        rubric,
+        itemPrompt: p.itemPrompt,
+        threshold: p.threshold,
+      });
+    }),
+  );
+  ipcMain.handle('ai:chatExamTutor', wrap((p) => aiProxy.chatExamTutor(db(), p)));
+
+  // Zhixuewang & Universal WebContentsView Companion
+  ipcMain.handle('zhixue:attach', wrap((bounds, url) => zhixue.attach(bounds, url)));
+  ipcMain.handle('zhixue:resize', wrap((bounds) => zhixue.resize(bounds)));
+  ipcMain.handle('zhixue:detach', wrap(() => zhixue.detach()));
+  ipcMain.handle('zhixue:navigate', wrap((url) => zhixue.navigate(url)));
+  ipcMain.handle('zhixue:goBack', wrap(() => zhixue.goBack()));
+  ipcMain.handle('zhixue:goForward', wrap(() => zhixue.goForward()));
+  ipcMain.handle('zhixue:reload', wrap(() => zhixue.reload()));
+  ipcMain.handle('zhixue:captureRegion', wrap((rect) => zhixue.captureRegion(rect)));
+  ipcMain.handle('zhixue:fillScore', wrap((score, hint) => zhixue.fillScore(score, hint)));
+}

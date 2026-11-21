@@ -1,0 +1,35 @@
+appId: com.cyz.teacher-workbench
+productName: cyz的教师工作台
+directories:
+  buildResources: build
+  output: release
+files:
+  - 'out/**/*'
+  - 'package.json'
+  - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
+extraResources:
+  - from: resources
+    to: resources
+asar: true
+mac:
+  category: public.app-category.education
+  icon: build/icon.icns
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+win:
+  icon: build/icon.ico
+  target:
+    - target: zip
+      arch:
+        - x64
+dmg:
+  title: cyz的教师工作台
+electronDownload:
+  mirror: https://cdn.npmmirror.com/binaries/electron/
+  customDir: '{{ version }}'
+npmRebuild: false

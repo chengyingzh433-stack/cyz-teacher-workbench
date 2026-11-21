@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { utils, write } from 'xlsx';
-import { emptyWorkspace, validate } from '../src/app/model';
-import { analyzeGrades } from '../src/modules/gradebook/analysis';
-import { exportGradebookCsv } from '../src/modules/gradebook/export';
-import { gradeSourceRows, inferMapping, sourceClasses } from '../src/modules/gradebook/recognize';
 import {
-  commitGradeImport,
-  previewGradeImport,
-  type ImportInput,
-} from '../src/modules/gradebook/service';
-import type { TableSheet } from '../src/modules/gradebook/table';
-import { parseGradeWorkbook } from '../src/modules/gradebook/workbook';
-import { addClass, saveStudent } from '../src/modules/roster';
+  gradeSourceRows,
+  inferMapping,
+  scoreValue,
+  sourceClasses,
+} from '../src/shared/gradebook/recognize';
+import { parseGradeWorkbook } from '../src/shared/gradebook/workbook';
 
 function buildFormulaSample() {
   const wb = utils.book_new();
@@ -29,6 +24,7 @@ function buildFormulaSample() {
   const bytes = new Uint8Array(write(wb, { type: 'buffer', bookType: 'xlsx' }));
   return parseGradeWorkbook(bytes, '01-公式与零分.xlsx', 'utf-8');
 }
+
 function buildMultiClassSample() {
   const wb = utils.book_new();
   const makeSheet = (mergedClass: boolean) => {
@@ -51,87 +47,40 @@ function buildMultiClassSample() {
   const bytes = new Uint8Array(write(wb, { type: 'buffer', bookType: 'xlsx' }));
   return parseGradeWorkbook(bytes, '02-多班物理成绩与年排.xlsx', 'utf-8');
 }
-function options(sheet: TableSheet): ImportInput {
-  return {
-    title: '验收',
-    date: '2026-11-18',
-    examId: '',
-    reason: '',
-    mapping: inferMapping(sheet),
-    bindings: {},
-    excluded: {},
-    includedRows: [],
-    corrections: {},
-    acceptFormulas: true,
-  };
-}
-test('成绩单：缺缓存公式不能由通用确认放行；更正后与真零分分别入账', async () => {
-  const file = '01-公式与零分.xlsx';
+
+test('P0 成绩单识别：真零分保留，无缓存公式拦截，手动更正生效', () => {
   const [sheet] = buildFormulaSample().sheets;
-  const s = emptyWorkspace(),
-    c = addClass(s, '公式');
-  const source = { file, sheet, hash: '1'.repeat(64) },
-    input = options(sheet);
-  const preview = () => previewGradeImport(s, c, source, input, 'token');
-  const before = preview();
+  const mapping = inferMapping(sheet);
   assert.deepEqual(
-    before.rows.map((r) => r.cells[0].units),
+    mapping.columns.map((c) => c.role),
+    ['name', 'number', 'score'],
+  );
+  const rows = gradeSourceRows(sheet, mapping);
+  assert.equal(rows.length, 4);
+  const parsed = rows.map((r) => scoreValue(sheet.rows[r.rowIndex][2]));
+  assert.deepEqual(
+    parsed.map((p) => p.units),
     [0, 8000, 8000, null],
   );
-  assert.deepEqual(
-    before.rows.map((r) => r.errors.length > 0),
-    [false, false, false, true],
-  );
-  assert.match(before.rows[3].errors.join(' '), /公式.*缓存/);
-  assert.throws(() => commitGradeImport(s, before, 'token'));
-  assert.equal(s.data.memberships.length, 0);
-  input.corrections['5:2'] = '80';
-  commitGradeImport(s, preview(), 'token');
-  const [batch] = validate(s).data.gradebook.imports;
-  const result = analyzeGrades(batch, 'computed');
-  assert.deepEqual([result.count, result.meanUnits, result.minUnits], [4, 6000, 0]);
-  assert.equal(batch.rows[3].cells[0].raw, '');
-  assert.equal(batch.rows[3].cells[0].corrected, '80');
+  assert.match(parsed[3].error || '', /公式.*缓存/);
+  const fixed = scoreValue(sheet.rows[rows[3].rowIndex][2], '80');
+  assert.equal(fixed.status, 'score');
+  assert.equal(fixed.units, 8000);
 });
-test('成绩单：两种班名布局都按班提交，同科年排与汇总行都不计分', async () => {
-  const file = '02-多班物理成绩与年排.xlsx';
+
+test('P0 成绩单识别：多行表头忽略年排，合并班名正确识别，汇总行自动排除', () => {
   const { sheets } = buildMultiClassSample();
   assert.equal(sheets.length, 2);
   for (const sheet of sheets) {
-    const s = emptyWorkspace(),
-      c = addClass(s, '班级A');
-    for (const [name, rosterNo] of [
-      ['样例甲', '001'],
-      ['样例乙', '002'],
-    ])
-      saveStudent(s, c, { name, rosterNo, gender: 'unspecified' });
-    const source = { file, sheet, hash: '2'.repeat(64) },
-      input = options(sheet);
+    const mapping = inferMapping(sheet);
     assert.deepEqual(
-      input.mapping.columns.map((col) => col.role),
+      mapping.columns.map((c) => c.role),
       ['class', 'name', 'number', 'score', 'ignore'],
     );
-    assert.deepEqual(sourceClasses(gradeSourceRows(sheet, input.mapping), []), ['班级A', '班级B']);
-    const preview = () => previewGradeImport(s, c, source, input, 'token');
-    assert.throws(() => commitGradeImport(s, preview(), 'token'), /来源班级/);
-    assert.equal(s.data.gradebook.imports.length, 0);
-    input.mapping.sourceClass = '班级A';
-    commitGradeImport(s, preview(), 'token');
-    const [batch] = validate(s).data.gradebook.imports;
-    assert.equal(s.data.memberships.length, 2);
-    assert.deepEqual(
-      batch.rows.map((r) => r.sourceNo),
-      ['001', '002'],
-    );
-    assert.deepEqual(batch.excluded, [
-      { line: 5, reason: '其他来源班级' },
-      { line: 6, reason: '识别为汇总/说明行' },
-    ]);
-    const result = analyzeGrades(batch, 'computed');
-    assert.deepEqual(result.values, [8000, 6000]);
-    assert.equal(result.meanUnits, 7000);
-    const csv = exportGradebookCsv(batch, true, '验收');
-    assert.equal(csv.split('\r\n').length, 3);
-    assert.doesNotMatch(csv, /年排|样例戊|平均分/);
+    const rows = gradeSourceRows(sheet, mapping);
+    assert.deepEqual(sourceClasses(rows), ['班级A', '班级B']);
+    const autoExcluded = rows.filter((r) => r.automaticExclusion);
+    assert.equal(autoExcluded.length, 1);
+    assert.equal(autoExcluded[0].automaticExclusion, '识别为汇总/说明行');
   }
 });

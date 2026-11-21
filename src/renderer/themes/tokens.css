@@ -1,0 +1,251 @@
+@import 'tailwindcss';
+
+:root,
+[data-theme='studio-light'] {
+  color-scheme: light;
+  --bg-canvas: #faf9f6;
+  --bg-sidebar: #f3f1ec;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f0ede6;
+  --bg-hover: #eae6dd;
+  --bg-active: #e4efe9;
+
+  --ink-primary: #1c1917;
+  --ink-secondary: #57534e;
+  --ink-muted: #78716c;
+
+  --border-subtle: #e7e3da;
+  --border-strong: #d4cfc3;
+
+  --accent: #1d6b52;
+  --accent-hover: #165541;
+  --accent-soft: #e6f4ee;
+  --accent-ink: #ffffff;
+
+  --ok: #15803d;
+  --ok-soft: #eaf8ef;
+  --warn: #b45309;
+  --warn-soft: #fef6e4;
+  --danger: #be2d24;
+  --danger-soft: #fdeeed;
+  --info: #1d5fa8;
+  --info-soft: #eef5fe;
+
+  --classroom-floor-a: #f3eadc;
+  --classroom-floor-b: #ede1cf;
+  --classroom-wall: #e8e2d5;
+  --classroom-board: #234137;
+  --classroom-board-frame: #8f6846;
+  --classroom-podium: #b4845a;
+  --classroom-sunlight: rgba(255, 248, 224, 0.42);
+  --classroom-plate-bg: #ffffff;
+  --classroom-plate-border: #c9c2b4;
+
+  --grading-canvas: #16181a;
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-md: 0 8px 24px rgba(28, 25, 23, 0.08);
+  --shadow-lg: 0 22px 54px rgba(28, 25, 23, 0.18);
+}
+
+[data-theme='studio-dark'] {
+  color-scheme: dark;
+  --bg-canvas: #131517;
+  --bg-sidebar: #1a1c1f;
+  --bg-surface: #1e2024;
+  --bg-elevated: #25282d;
+  --bg-muted: #24272c;
+  --bg-hover: #2c3037;
+  --bg-active: rgba(56, 178, 134, 0.16);
+
+  --ink-primary: #f2efe9;
+  --ink-secondary: #b7b3aa;
+  --ink-muted: #8a867e;
+
+  --border-subtle: #2b2f36;
+  --border-strong: #3a404a;
+
+  --accent: #38b286;
+  --accent-hover: #2f9d75;
+  --accent-soft: rgba(56, 178, 134, 0.15);
+  --accent-ink: #0c1f18;
+
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.14);
+
+  --classroom-floor-a: #24221f;
+  --classroom-floor-b: #1e1c1a;
+  --classroom-wall: #292724;
+  --classroom-board: #183029;
+  --classroom-board-frame: #6a4d34;
+  --classroom-podium: #7b593c;
+  --classroom-sunlight: rgba(255, 226, 168, 0.08);
+  --classroom-plate-bg: #26292e;
+  --classroom-plate-border: #3d434d;
+
+  --grading-canvas: #0d0e10;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Inter, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-primary);
+  background: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink-muted) 28%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink-muted) 48%, transparent);
+}
+
+/* Classroom animations */
+.person-enter {
+  animation: person-rise 0.24s ease-out both;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+.person-turn {
+  animation: person-flip 0.18s ease-out;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.seat-spotlight {
+  animation: spotlight-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes person-rise {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+@keyframes person-flip {
+  from {
+    transform: scaleX(0.84);
+  }
+}
+@keyframes spotlight-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* OCR conflict highlight */
+mark.ocr-diff {
+  background: #fde073;
+  color: #553100;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+  border-bottom: 2px solid #d97706;
+  cursor: help;
+}
+
+/* Command palette (cmdk) styling */
+[cmdk-root] {
+  background: var(--bg-elevated);
+  color: var(--ink-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  width: min(580px, calc(100vw - 32px));
+}
+[cmdk-input] {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 14.5px;
+  background: transparent;
+  color: var(--ink-primary);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  outline: none;
+}
+[cmdk-list] {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 8px;
+}
+[cmdk-group-heading] {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  padding: 6px 10px 4px;
+  letter-spacing: 0.02em;
+}
+[cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  user-select: none;
+}
+[cmdk-item][data-selected='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+[cmdk-empty] {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-enter,
+  .person-turn,
+  .seat-spotlight {
+    animation: none;
+  }
+}

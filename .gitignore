@@ -5,8 +5,8 @@ node_modules/
 dist/
 out/
 release/
-build/
 .dev/
+*.tsbuildinfo
 
 # Local databases & test vaults
 *.sqlite

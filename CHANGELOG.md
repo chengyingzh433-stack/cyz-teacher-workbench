@@ -1,24 +1,44 @@
 # 开发日志（CHANGELOG）
 
-本文档记录 `cyz-teacher-workbench-web`（独立重构副本）的功能演进、架构重构与真实完成边界。未经过目标设备实测或尚未实现的模块均明确标出，不混淆“已完成底座”与“待开发能力”。
+本文档记录 `cyz-teacher-workbench-web` 的架构演进、版本交付与真实完成边界。未经过真机/外网账号实测的能力均明确标出，不混淆“已完成底座”与“待联网实测项”。
 
 ---
 
-## 当前模块状态速查（2026-11-19）
+## 1.0.0 独立桌面端架构与工作室级 UI 全面重构 · 2026-11-21
 
-| 模块 | 当前状态 | 说明 |
-| --- | --- | --- |
-| 班级管理 / 花名册 / 像素角色 / 排座 | **已实现并完成前端重构** | 单文件离线可用，支持 2 步导入、快速找人、步进器调尺寸、拖拽与撤销 |
-| Excel / CSV 成绩单导入与分析 | **已实现并完成前端重构** | 支持 4 步向导、多班与汇总行处理、公式缓存核对、交互式分数段筛选、排序与导出 |
-| AI 助手（会话配置 + 物理均分问数） | **仅实现只读问数试点** | 已支持 DeepSeek / 自定义 OpenAI 兼容接口配置，仅开放 `grades.physics_mean` 单一汇总查询 |
-| **手写答卷人工阅卷与知识点讲评** | **已实现并重构** | 支持建题冻结、拍照上传/旋转/框选裁剪、左右对照快捷给分、知识点权重统计与导出 |
-| **AI 智能阅卷核心引擎（V3.1 第 1 期）** | **工作台内核心引擎已实现** | 已上线统一/自定义模型分工、参考答案一键拆得分点、盲识图 VLM + OCR 交叉标黄输出区、得分点采纳、4 维客观置信度与可调“半自动功率”批量/照片试测台 |
-| **网阅平台接入（智学网等 · V3.1 第 2 期）** | **规划就绪，待开发** | 将复用 `AI-Marker-Suite` 44 平台适配器（首选智学网）+ 第 45 号通用网页划区适配器，并接入第 1 期同款核心引擎 |
-| PDF 不打分报告自动解析 / 正确率类型（GB-10~14） | **未开发（规划中）** | 当前仍以 Excel / CSV / 粘贴表格为主 |
+依据甲方审查与正式技术选型记录（[decisions-desktop-tech-stack.md](docs/decisions-desktop-tech-stack.md)），彻底抛弃 16.9 MB 单文件 HTML + 浏览器 IndexedDB 的旧形态，重构为 **Electron 45 + Node.js 24 原生 `node:sqlite` + React 19 + Tailwind CSS v4 + Apache ECharts 6** 独立跨平台桌面客户端（首选 macOS `.dmg`，同时从 macOS 零原生依赖交叉构建 Windows 绿色版 `.zip`）。
+
+### 核心架构重构
+- **Obsidian 式本地资料库（Vault）+ 原生单文件 SQLite**（[db.ts](src/main/db.ts)、[vault.ts](src/main/vault.ts)、[photo-store.ts](src/main/photo-store.ts)）：
+  - 所有班级、花名册、排座方案、统一考试成绩、手写批阅细则与记录统一存于资料库目录（默认 `~/Documents/cyz教师工作台`）的 `workbench.sqlite`（`DELETE` 日志模式，适配 iCloud / 坚果云单文件同步），答卷照片按内容哈希直存磁盘 `photos/<examId>/<sha256>.<ext>` 彻底告别内存膨胀。
+  - 新增 `withTransaction` 可重入 `SAVEPOINT` 嵌套事务保护、**软删除回收站**（可随时恢复；彻底清空时自动回收磁盘孤立照片）与**成绩修改留痕（`score_audit_logs`）**。
+- **系统钥匙串加密 + 主进程零跨域 AI 代理**（[keychain.ts](src/main/keychain.ts)、[ai-proxy.ts](src/main/ai-proxy.ts)）：
+  - API Key 经 Electron `safeStorage` 原生系统钥匙串加密后存于 `userData/ai-config.json`，绝不写入可共享的 Vault 文件夹；所有大模型 / VLM / HTTP OCR 请求由主进程发起，彻底根除浏览器 CORS 拦截。
+  - 保留并提纯两段防幻觉盲识图引擎（[ai-engine.ts](src/shared/ai-engine.ts)），新增**隐私透明只读学情对话抽屉**（仅汇总统计指标，不外发学生姓名/学号）。
+- **独立净室内置「智学网 / 通用网阅伴侣」**（[zhixue-view.ts](src/main/zhixue-view.ts)、[ZhixueCompanion.tsx](src/renderer/features/zhixue/ZhixueCompanion.tsx)）：
+  - 采用 Electron 原生 `WebContentsView` 与独立持久化会话分区（`persist:zhixue`），持久保持智学网 / 七天网络 / 好分数登录态，免装浏览器扩展；支持原生 `capturePage()` 截屏送入统一评分细则与 AI 引擎，并由教师显式触发填入打分框（绝不盲目自动提交）。
+
+### 前端美学与深度业务打通
+- **工作室级设计语言 + 可扩展 Design Token 主题引擎**（[tokens.css](src/renderer/themes/tokens.css)、[themes/index.ts](src/renderer/themes/index.ts)）：
+  - 首发精雕双旗舰主题：`studio-light`（温润米纸 × 雾面黑板松林绿）与 `studio-dark`（深夜工作室炭灰 × 柔和翡翠绿），支持侧栏一键切换并同步更新矢量教室与 ECharts 配色，预留多主题扩展接口。
+  - 新增全局 `⌘K / Ctrl+K` 命令面板（[CommandPalette.tsx](src/renderer/components/ui/CommandPalette.tsx)），毫秒级直达任意学生成长档案、考试与主题切换。
+- **自适应矢量像素教室 + WebP 资产瘦身 81.5%**（[VectorClassroom.tsx](src/renderer/features/classroom/VectorClassroom.tsx)、[SpriteArt.tsx](src/renderer/features/classroom/SpriteArt.tsx)）：
+  - 废除拉伸变形的 `room.png`，重绘支持 `1×1` 至 `12×16` 任意尺寸零变形缩放的矢量建筑教室（木地板纹理、日光窗影、橡木框黑板、讲台与过道标线），保留 29 位像素角色与课桌并转为 WebP 外置资产（`9.99 MB → 1.85 MB`）。
+  - 打通**按考试成绩一键智能排座**（蛇形均衡 / 强弱帮扶 / 高分靠前 / 小组均衡）与**点击任意座位直开学生成长档案抽屉**（ECharts 个人得分 vs 班级均分趋势曲线 + 历史答卷缩略图）。
+- **统一考试中心（原成绩册 + 主观题阅卷深度合一）**（[ExamCenter.tsx](src/renderer/features/exams/ExamCenter.tsx)、[GradingWorkbenchTab.tsx](src/renderer/features/grading/GradingWorkbenchTab.tsx)）：
+  - 同一场考试下整合「成绩分析与明细」与「手写阅卷与讲评」，确认手写题得分后**自动实时回填**至考试总表并参与 ECharts 分数段柱状图点击筛选与多考趋势分析。
+
+### 本轮验证记录
+- `npm run typecheck`：主进程 + 渲染进程双严格 TypeScript 检查 0 错误。
+- `npm test`：**10 / 10** 项核心单元测试全部通过（含 Vault + `node:sqlite` 全链路、嵌套事务 `SAVEPOINT`、系统钥匙串加密、AI 两段防幻觉与 OCR 交叉标黄、P0 成绩单公式与多行表头识别）。
+- **Electron 45 实机启动与 9 场景视觉截图验收**：在真实 Electron 生产构建包中逐一验证欢迎页、6 张 WebP 像素精灵 `200 OK` 加载、32 人一键演示班、矢量教室（浅色/深色）、学生成长档案 ECharts 折线图、统一考试中心 ECharts 柱状图（浅色/深色）、花名册、手写阅卷标签页、设置中心与智学网伴侣视口挂载，**0 运行时报错**。
+- **待用户实机核验项**：需由教师使用真实 DeepSeek / 视觉大模型 API Key 联网实测手写照片 AI 判分，以及使用真实智学网账号在「智学网伴侣」登录并验证实际打分框填入体验；Windows 绿色版 `.zip` 需在 Windows 实体机解压双击验收。
 
 ---
 
-## 0.6.0-ai-grading-p1 AI 智能阅卷核心引擎（第 1 期） · 2026-11-19
+## 历史记录（v0.x 单文件 HTML 原型阶段）
+
+### 0.6.0-ai-grading-p1 AI 智能阅卷核心引擎（第 1 期） · 2026-11-19
 
 按重新规划的 V3.1 方案完成**第 1 期（工作台内置核心引擎）**落地，彻底取代过于繁琐的 V2 旧规划：
 
