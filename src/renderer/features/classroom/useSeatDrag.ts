@@ -26,7 +26,27 @@ export function useSeatDrag(
 ) {
   const gesture = useRef<Gesture | null>(null);
   const suppressClick = useRef(false);
+  const suppressTimer = useRef<number | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+
+  const resetSuppressClick = useCallback(() => {
+    if (suppressTimer.current !== null) {
+      window.clearTimeout(suppressTimer.current);
+      suppressTimer.current = null;
+    }
+    suppressClick.current = false;
+  }, []);
+
+  const markSuppressClick = useCallback(() => {
+    suppressClick.current = true;
+    if (suppressTimer.current !== null) window.clearTimeout(suppressTimer.current);
+    // Only suppress the synthetic click dispatched immediately after pointerup/cancel;
+    // never let it leak across turns into normal clicks or Quick-Check mode.
+    suppressTimer.current = window.setTimeout(() => {
+      suppressTimer.current = null;
+      suppressClick.current = false;
+    }, 0);
+  }, []);
 
   const clear = useCallback(() => {
     const g = gesture.current;
@@ -38,9 +58,11 @@ export function useSeatDrag(
   }, []);
 
   const cancel = useCallback(() => {
-    if (gesture.current) suppressClick.current = true;
+    const wasMoved = Boolean(gesture.current?.moved);
     clear();
-  }, [clear]);
+    if (wasMoved) markSuppressClick();
+    else resetSuppressClick();
+  }, [clear, markSuppressClick, resetSuppressClick]);
 
   useEffect(() => {
     const onEscape = (event: KeyboardEvent) => {
@@ -55,8 +77,9 @@ export function useSeatDrag(
       window.removeEventListener('keydown', onEscape);
       window.removeEventListener('blur', cancel);
       cancel();
+      resetSuppressClick();
     };
-  }, [cancel]);
+  }, [cancel, resetSuppressClick]);
 
   function seatAt(x: number, y: number): SeatCoord | null {
     const seat = document.elementFromPoint(x, y)?.closest('[data-seat]');
@@ -68,7 +91,11 @@ export function useSeatDrag(
   return {
     drag,
     cancel,
-    allowClick: () => !suppressClick.current,
+    allowClick: () => {
+      if (!suppressClick.current) return true;
+      resetSuppressClick();
+      return false;
+    },
     start(
       event: PointerEvent<SVGRectElement>,
       id: string | undefined,
@@ -77,7 +104,7 @@ export function useSeatDrag(
       facing: 'front' | 'back',
     ) {
       if (event.button !== 0 || !event.isPrimary || gesture.current) return;
-      suppressClick.current = false;
+      resetSuppressClick();
       if (!id) return;
       const bounds = event.currentTarget.getBoundingClientRect();
       gesture.current = {
@@ -118,7 +145,10 @@ export function useSeatDrag(
       const g = gesture.current;
       if (!g || event.pointerId !== g.pointerId) return;
       const target = g.moved ? seatAt(event.clientX, event.clientY) : null;
+      const wasMoved = g.moved;
       clear();
+      if (wasMoved) markSuppressClick();
+      else resetSuppressClick();
       if (target && (target.row !== g.from.row || target.col !== g.from.col)) {
         onDrop(g.id, target.row, target.col);
       }

@@ -350,11 +350,48 @@ app.on('browser-window-created', (_ev, win) => {
       `);
       await sleep(300);
 
-      // Step 10: Classroom Quick-Check mode + Floating Focus Timer (switch back to studio-light for crisp check)
+      // Step 10: Classroom Drag-then-Quick-Check regression + Floating Focus Timer
+      // Regression guard: dragging a seat in edit mode must NEVER leave suppressClick stuck
+      // and break subsequent real mouse clicks in Quick-Check or profile mode.
       await openSettingsThemeTab(win);
       await clickThemeCard(win, '现代暖白工作室');
       await closeSettings(win);
       await navTo(win, '互动教室');
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const editBtn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('进入排座'));
+          if (!editBtn) throw new Error('Enter seating button not found');
+          editBtn.click();
+        })()
+      `);
+      await sleep(350);
+      const dragCoords = await win.webContents.executeJavaScript(`(() => {
+        const r1 = document.querySelector('[data-seat="1"][data-row="0"][data-col="0"] rect')?.getBoundingClientRect();
+        const r2 = document.querySelector('[data-seat="1"][data-row="0"][data-col="1"] rect')?.getBoundingClientRect();
+        if (!r1 || !r2) throw new Error('Seat rects not found for drag regression');
+        return {
+          x1: Math.round(r1.left + r1.width / 2),
+          y1: Math.round(r1.top + r1.height / 2),
+          x2: Math.round(r2.left + r2.width / 2),
+          y2: Math.round(r2.top + r2.height / 2),
+        };
+      })()`);
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: dragCoords.x1, y: dragCoords.y1 });
+      await sleep(50);
+      win.webContents.sendInputEvent({ type: 'mouseDown', x: dragCoords.x1, y: dragCoords.y1, button: 'left', clickCount: 1 });
+      await sleep(60);
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: dragCoords.x2, y: dragCoords.y2, button: 'left' });
+      await sleep(100);
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: dragCoords.x2, y: dragCoords.y2, button: 'left', clickCount: 1 });
+      await sleep(400);
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const doneBtn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('完成排座'));
+          if (!doneBtn) throw new Error('Finish seating button not found');
+          doneBtn.click();
+        })()
+      `);
+      await sleep(350);
       await win.webContents.executeJavaScript(`
         (() => {
           const qc = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('快速点检'));
@@ -363,17 +400,34 @@ app.on('browser-window-created', (_ev, win) => {
         })()
       `);
       await sleep(350);
+      // Real Chromium mouse click on a seated student's head/body after drag-and-exit!
+      const qcSeatPos = await win.webContents.executeJavaScript(`(() => {
+        const r = document.querySelector('[data-seat="1"][data-row="0"][data-col="1"] rect')?.getBoundingClientRect();
+        if (!r) throw new Error('Seat cell rect not found');
+        return { x: Math.round(r.left + r.width * 0.5), y: Math.round(r.top + r.height * 0.5) };
+      })()`);
+      win.webContents.sendInputEvent({ type: 'mouseMove', x: qcSeatPos.x, y: qcSeatPos.y });
+      await sleep(80);
+      win.webContents.sendInputEvent({ type: 'mouseDown', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      await sleep(250);
+      // Toggle off and toggle back on with real clicks to verify repeated toggling works
+      win.webContents.sendInputEvent({ type: 'mouseDown', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      await sleep(200);
+      const qcAfterUnmark = await win.webContents.executeJavaScript(`document.body.innerText.includes('已标记 缺勤/请假：0 / 32 人')`);
+      assert.equal(qcAfterUnmark, true, 'Quick-check second real click must unmark seat back to 0 / 32');
+      win.webContents.sendInputEvent({ type: 'mouseDown', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      win.webContents.sendInputEvent({ type: 'mouseUp', x: qcSeatPos.x, y: qcSeatPos.y, button: 'left', clickCount: 1 });
+      await sleep(250);
       await win.webContents.executeJavaScript(`
         (() => {
-          const seatRect = document.querySelector('[data-seat="1"][data-row="0"][data-col="1"] rect');
-          if (!seatRect) throw new Error('Seat cell rect not found');
-          seatRect.dispatchEvent(new MouseEvent('click', { bubbles: true }));
           const timerBtn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').trim() === '计时器');
           if (!timerBtn) throw new Error('Focus timer toggle button not found');
           timerBtn.click();
         })()
       `);
-      await sleep(500);
+      await sleep(400);
       const qcState = await win.webContents.executeJavaScript(`(() => {
         const text = document.body.innerText;
         return {
@@ -381,7 +435,7 @@ app.on('browser-window-created', (_ev, win) => {
           hasTimer: text.includes('25:00') && text.includes('专注 / 课堂倒计时'),
         };
       })()`);
-      assert.equal(qcState.hasMarkedOne, true, 'Quick-check mode must toggle seat anomaly count to 1 / 32');
+      assert.equal(qcState.hasMarkedOne, true, 'Quick-check mode must toggle seat anomaly count to 1 / 32 via real click after drag');
       assert.equal(qcState.hasTimer, true, 'Floating focus timer must open with 25:00');
       await saveShot(win, '10-classroom-quickcheck-timer.png');
 

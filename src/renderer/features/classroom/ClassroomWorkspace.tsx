@@ -471,11 +471,11 @@ export function ClassroomWorkspace({
             已标记 {HOMEROOM_CHECK_KINDS[checkKind].anomalyLabel}：{checkAnomalyIds.size} / {members.length} 人
           </Badge>
 
-          <div className="flex-1 text-xs text-[var(--ink-muted)] truncate hidden xl:block">
+          <div className="flex-1 min-w-0 text-xs text-[var(--ink-muted)] truncate hidden 2xl:block">
             直接点击教室中对应座位标记/取消，未点选的学生默认为「{HOMEROOM_CHECK_KINDS[checkKind].normalLabel}」
           </div>
 
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1.5 ml-auto shrink-0">
             {checkAnomalyIds.size > 0 && (
               <Button size="xs" variant="ghost" onClick={() => setCheckAnomalyIds(new Set())}>
                 清空标记
@@ -689,7 +689,7 @@ export function ClassroomWorkspace({
             </Button>
           )}
 
-          <div className="flex-1 text-xs text-[var(--ink-muted)] truncate px-1">
+          <div className="flex-1 min-w-0 text-xs text-[var(--ink-muted)] truncate px-1">
             {selected
               ? `已选「${selectedName}」— 点击任意座位即可互换或入座`
               : '直接拖拽人物，或依次点击两个座位互换'}
@@ -716,7 +716,11 @@ export function ClassroomWorkspace({
         </Card>
       ) : (
         <div className="text-[12px] text-[var(--ink-muted)] flex items-center justify-between px-1 shrink-0">
-          <span>提示：点击教室里任意同学打开成长档案与成绩趋势 · 悬停人物会回头打招呼</span>
+          <span>
+            {checkActive
+              ? `点检模式：直接点击教室中对应座位标记/取消「${HOMEROOM_CHECK_KINDS[checkKind].anomalyLabel}」，未点选学生默认为「${HOMEROOM_CHECK_KINDS[checkKind].normalLabel}」`
+              : '提示：点击教室里任意同学打开成长档案与成绩趋势 · 悬停人物会回头打招呼'}
+          </span>
           <span className="tabular-nums">⌘K 全局快速找人 / 切考试</span>
         </div>
       )}

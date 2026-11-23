@@ -464,12 +464,13 @@ export function VectorClassroom({
                   }
                   strokeWidth={isCheckAnomaly || isHighlighted || isSelected || isDragTarget ? 2.4 : 1.5}
                   strokeDasharray={isDragOrigin || (editing && selected && !member) ? '4 3' : undefined}
+                  pointerEvents="all"
                   className={isHighlighted ? 'seat-spotlight' : ''}
                   onPointerDown={(e) => {
                     if (editing && origMid) seatDrag.start(e, origMid, { row, col }, viewScale, facing);
                   }}
                   onClick={() => {
-                    if (!seatDrag.allowClick()) return;
+                    if (editing && !seatDrag.allowClick()) return;
                     if (editing) onSelectSeat(mid || null, row, col);
                     else if (checkMode && mid) checkMode.onToggleAnomaly(mid);
                     else if (mid) onOpenProfile(mid);
@@ -491,7 +492,11 @@ export function VectorClassroom({
                 </rect>
 
                 {/* Desk + Character Layer */}
-                <g transform="translate(2, 20)" opacity={isHeld ? 0.25 : member ? 1 : 0.42}>
+                <g
+                  transform="translate(2, 20)"
+                  opacity={isHeld ? 0.25 : member ? 1 : 0.42}
+                  className="pointer-events-none"
+                >
                   <SeatedPerson
                     person={member ? { gender: member.gender, characterId: member.characterId } : undefined}
                     facing={facing}
