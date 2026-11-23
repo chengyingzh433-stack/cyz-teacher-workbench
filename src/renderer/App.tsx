@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, Edit2, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
+import { Archive, Edit2, RotateCcw, Trash2 } from 'lucide-react';
 import type {
   ClassRecord,
   ExamSummary,
-  Gender,
   HomeroomDashboardSummary,
   HomeroomMemo,
   StudentMember,
   TeacherProfile,
   VaultInfo,
 } from '../shared/types';
-import { characterPool } from '../shared/characters';
 import { localTodayStr } from '../shared/homeroom-materials';
 import { applyThemeToDocument, getQuickToggleThemeId } from './themes';
-import { ArtRegistry, Avatar } from './features/classroom/SpriteArt';
+import { ArtRegistry } from './features/classroom/SpriteArt';
 import { ClassroomWorkspace } from './features/classroom/ClassroomWorkspace';
 import { StudentProfileDrawer } from './features/classroom/StudentProfileDrawer';
 import { RosterWorkspace } from './features/roster/RosterWorkspace';
@@ -26,16 +24,10 @@ import { ZhixueCompanion } from './features/zhixue/ZhixueCompanion';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { TrashModal } from './components/TrashModal';
+import { OnboardingWelcome } from './components/OnboardingWelcome';
+import { ClassAndTeacherModals } from './components/ClassAndTeacherModals';
 import { CommandPalette } from './components/ui/CommandPalette';
-import {
-  Badge,
-  Button,
-  Card,
-  ConfirmDialog,
-  Input,
-  Modal,
-  Select,
-} from './components/ui/primitives';
+import { Badge, Button, ConfirmDialog } from './components/ui/primitives';
 
 export type NavSpace = 'classroom' | 'roster' | 'exams' | 'homeroom' | 'zhixue';
 
@@ -72,14 +64,7 @@ export function App() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [profileMemberId, setProfileMemberId] = useState<string | null>(null);
   const [teacherOpen, setTeacherOpen] = useState(false);
-  const [tName, setTName] = useState('');
-  const [tGender, setTGender] = useState<Gender>('unspecified');
-  const [tCharId, setTCharId] = useState<string | null>(null);
-
   const [classModal, setClassModal] = useState<'new' | 'edit' | null>(null);
-  const [cName, setCName] = useState('');
-  const [cSchool, setCSchool] = useState('');
-  const [cTerm, setCTerm] = useState('');
   const [deleteClassTarget, setDeleteClassTarget] = useState<ClassRecord | null>(null);
 
   // Toast notification
@@ -190,26 +175,6 @@ export function App() {
     await window.workbenchApi.vault.updatePreferences({ sidebarCollapsed: next });
   }
 
-  function openClassForm(mode: 'new' | 'edit') {
-    if (mode === 'edit' && currentClass) {
-      setCName(currentClass.name);
-      setCSchool(currentClass.school);
-      setCTerm(currentClass.termLabel);
-    } else {
-      setCName('');
-      setCSchool('');
-      setCTerm('2026-2027 上学期');
-    }
-    setClassModal(mode);
-  }
-
-  function openTeacherForm() {
-    setTName(teacher.name);
-    setTGender(teacher.gender);
-    setTCharId(teacher.characterId);
-    setTeacherOpen(true);
-  }
-
   const anyOverlayOpen =
     cmdOpen ||
     settingsOpen ||
@@ -248,12 +213,12 @@ export function App() {
         }
         vaultInfo={vaultInfo}
         onToggleCollapse={() => void handleToggleCollapse()}
-        onOpenTeacher={openTeacherForm}
+        onOpenTeacher={() => setTeacherOpen(true)}
         onSelectClass={(id) => {
           setClassId(id);
           setSelectedExamId('');
         }}
-        onCreateClass={() => openClassForm('new')}
+        onCreateClass={() => setClassModal('new')}
         onSelectSpace={setSpace}
         onOpenCmdK={() => setCmdOpen(true)}
         onToggleTheme={() => void handleChangeTheme(getQuickToggleThemeId(themeId))}
@@ -307,7 +272,7 @@ export function App() {
                 </Button>
               ) : (
                 <>
-                  <Button size="xs" variant="ghost" onClick={() => openClassForm('edit')}>
+                  <Button size="xs" variant="ghost" onClick={() => setClassModal('edit')}>
                     <Edit2 className="w-3.5 h-3.5" /> 班级信息
                   </Button>
                   <Button
@@ -348,57 +313,16 @@ export function App() {
               onNotify={notify}
             />
           ) : !currentClass ? (
-            /* Refined Studio Welcome Onboarding */
-            <div className="h-full flex items-center justify-center overflow-y-auto">
-              <div className="max-w-2xl w-full text-center flex flex-col items-center gap-5 py-8">
-                <div className="flex items-center gap-4">
-                  <Avatar gender="male" characterId="hashira-03" size={84} />
-                  <Avatar gender="female" characterId="hashira-06" size={84} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">cyz 的教师工作台 · 桌面版</h2>
-                  <p className="text-sm text-[var(--ink-muted)] mt-2 max-w-lg mx-auto leading-relaxed">
-                    自适应矢量像素教室、学生成长档案曲线、Excel 成绩分析图表、手写答卷 AI 批阅与内置智学网伴侣——全部存于你的本机资料库文件夹。
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
-                  <button
-                    type="button"
-                    onClick={() => openClassForm('new')}
-                    className="p-5 rounded-2xl border border-[var(--accent)]/40 bg-[var(--accent-soft)]/50 hover:bg-[var(--accent-soft)] text-left transition-all cursor-pointer flex flex-col gap-2"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] flex items-center justify-center">
-                      <Plus className="w-5 h-5" />
-                    </div>
-                    <div className="text-[15px] font-semibold">创建我的第一个班级</div>
-                    <div className="text-xs text-[var(--ink-secondary)]">
-                      输入班名，立即导入花名册、排座与管理考试
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const demo = await window.workbenchApi.classes.createDemo();
-                      await loadBootstrap();
-                      setClassId(demo.id);
-                      notify('已生成 32 人演示班及 2 场物理考试样例，点击任意同学可看成绩曲线！');
-                    }}
-                    className="p-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--accent)] text-left transition-all cursor-pointer flex flex-col gap-2 shadow-[var(--shadow-sm)]"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-muted)] text-[var(--accent)] flex items-center justify-center">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="text-[15px] font-semibold">一键载入演示班级（推荐体验）</div>
-                    <div className="text-xs text-[var(--ink-secondary)]">
-                      内置 32 人矢量像素教室 + 2 场物理成绩单，即刻试玩全部图表与智能排座
-                    </div>
-                  </button>
-                </div>
-                <div className="text-xs text-[var(--ink-muted)]">
-                  当前资料库：<code>{vaultInfo?.path}</code>
-                </div>
-              </div>
-            </div>
+            <OnboardingWelcome
+              vaultPath={vaultInfo?.path}
+              onCreateClass={() => setClassModal('new')}
+              onLoadDemo={async () => {
+                const demo = await window.workbenchApi.classes.createDemo();
+                await loadBootstrap();
+                setClassId(demo.id);
+                notify('已生成 32 人演示班及 2 场物理考试样例，点击任意同学可看成绩曲线！');
+              }}
+            />
           ) : space === 'classroom' ? (
             <ClassroomWorkspace
               cls={currentClass}
@@ -550,142 +474,25 @@ export function App() {
         onNotify={notify}
       />
 
-      {/* Class Create / Edit Modal */}
-      <Modal
-        open={Boolean(classModal)}
-        onOpenChange={(o) => !o && setClassModal(null)}
-        title={classModal === 'edit' ? '修改班级信息' : '新建班级'}
-        size="sm"
-        footer={
-          <>
-            <Button onClick={() => setClassModal(null)}>取消</Button>
-            <Button
-              variant="primary"
-              disabled={!cName.trim()}
-              onClick={async () => {
-                try {
-                  if (classModal === 'edit' && currentClass) {
-                    await window.workbenchApi.classes.update(currentClass.id, {
-                      name: cName,
-                      school: cSchool,
-                      termLabel: cTerm,
-                    });
-                    await loadClassData(currentClass.id);
-                    notify('已更新班级信息');
-                  } else {
-                    const created = await window.workbenchApi.classes.create({
-                      name: cName,
-                      school: cSchool,
-                      termLabel: cTerm,
-                    });
-                    await loadBootstrap();
-                    setClassId(created.id);
-                    setSpace('classroom');
-                    notify(`已创建班级「${created.name}」`);
-                  }
-                  setClassModal(null);
-                } catch (e) {
-                  notify((e as Error).message, 'err');
-                }
-              }}
-            >
-              保存
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-[13px] font-medium">
-            班级名称 *
-            <Input autoFocus value={cName} onChange={(e) => setCName(e.target.value)} placeholder="如：高二（5）班" />
-          </label>
-          <label className="flex flex-col gap-1 text-[13px] font-medium">
-            学校（可选）
-            <Input value={cSchool} onChange={(e) => setCSchool(e.target.value)} placeholder="如：实验中学" />
-          </label>
-          <label className="flex flex-col gap-1 text-[13px] font-medium">
-            学期（可选）
-            <Input value={cTerm} onChange={(e) => setCTerm(e.target.value)} placeholder="如：2026-2027 上学期" />
-          </label>
-        </div>
-      </Modal>
-
-      {/* Teacher Profile Modal */}
-      <Modal
-        open={teacherOpen}
-        onOpenChange={setTeacherOpen}
-        title="教师称呼与讲台像素形象"
-        size="md"
-        footer={
-          <>
-            <Button onClick={() => setTeacherOpen(false)}>取消</Button>
-            <Button
-              variant="primary"
-              onClick={async () => {
-                const saved = await window.workbenchApi.teacher.save({
-                  name: tName,
-                  gender: tGender,
-                  characterId: tGender === 'unspecified' ? null : tCharId,
-                });
-                setTeacher(saved);
-                setTeacherOpen(false);
-                notify('已更新教师形象与称呼');
-              }}
-            >
-              保存设置
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-[13px] font-medium">
-              教师称呼
-              <Input value={tName} onChange={(e) => setTName(e.target.value)} placeholder="如：陈老师 / cyz" />
-            </label>
-            <div className="flex flex-col gap-1 text-[13px] font-medium">
-              讲台角色性别
-              <Select
-                value={tGender}
-                onValueChange={(v) => {
-                  const g = v as Gender;
-                  setTGender(g);
-                  if (g === 'unspecified') setTCharId(null);
-                  else {
-                    const p = characterPool(g);
-                    if (!p.some((c) => c.id === tCharId)) setTCharId(p[0]?.id || null);
-                  }
-                }}
-                className="w-full h-9"
-                options={[
-                  { value: 'male', label: '男教师角色' },
-                  { value: 'female', label: '女教师角色' },
-                  { value: 'unspecified', label: '不设形象' },
-                ]}
-              />
-            </div>
-          </div>
-          {tGender !== 'unspecified' && (
-            <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto p-1">
-              {characterPool(tGender).map((ch) => (
-                <button
-                  key={ch.id}
-                  type="button"
-                  onClick={() => setTCharId(ch.id)}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-xl border cursor-pointer ${
-                    tCharId === ch.id
-                      ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
-                      : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 hover:bg-[var(--bg-hover)]'
-                  }`}
-                >
-                  <Avatar gender={tGender} characterId={ch.id} size={46} />
-                  <span className="text-[11px] font-medium text-center">{ch.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </Modal>
+      {/* Class & Teacher Modals */}
+      <ClassAndTeacherModals
+        classModal={classModal}
+        onClassModalChange={setClassModal}
+        currentClass={currentClass}
+        onClassCreated={async (createdId) => {
+          await loadBootstrap();
+          setClassId(createdId);
+          setSpace('classroom');
+        }}
+        onClassUpdated={async (cid) => {
+          await loadClassData(cid);
+        }}
+        teacherOpen={teacherOpen}
+        onTeacherOpenChange={setTeacherOpen}
+        teacher={teacher}
+        onTeacherSaved={setTeacher}
+        onNotify={notify}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteClassTarget)}

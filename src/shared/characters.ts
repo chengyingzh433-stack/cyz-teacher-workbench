@@ -29,9 +29,6 @@ export const characters = catalog.characters;
 export const characterPool = (gender: Gender): CharacterInfo[] =>
   gender === 'unspecified' ? [] : characters.filter((c) => c.gender === gender);
 
-export const teacherDefaultCharacter = (gender: Gender): string | null =>
-  gender === 'unspecified' ? null : catalog.teacherDefaults[gender];
-
 export function pickLeastUsedCharacter(
   gender: Gender,
   usedCharacterIds: Array<string | null>,

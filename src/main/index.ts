@@ -30,7 +30,6 @@ function resolveSpritesDir(): string {
     path.join(process.resourcesPath || '', 'resources', 'sprites'),
     path.join(app.getAppPath(), 'resources', 'sprites'),
     path.resolve(__dirname, '../../resources/sprites'),
-    path.resolve(__dirname, '../../assets/pixel'),
   ];
   for (const dir of candidates) {
     if (fs.existsSync(dir)) return dir;
@@ -180,13 +179,6 @@ if (!gotLock) {
           const name = path.basename(decodeURIComponent(u.pathname));
           const webpPath = path.join(spritesDir, name);
           if (fs.existsSync(webpPath)) return net.fetch(pathToFileURL(webpPath).toString());
-          // Fallback to PNG during dev if needed
-          const pngFallback = path.resolve(
-            __dirname,
-            '../../assets/pixel',
-            name.replace(/\.webp$/i, '.png'),
-          );
-          if (fs.existsSync(pngFallback)) return net.fetch(pathToFileURL(pngFallback).toString());
           return new Response('Sprite not found', { status: 404 });
         }
         if (u.hostname === 'vault' && vault) {

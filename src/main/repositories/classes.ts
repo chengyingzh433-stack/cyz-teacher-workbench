@@ -15,7 +15,10 @@ import {
 import { pickLeastUsedCharacter } from '../../shared/characters';
 import { withTransaction } from '../db';
 import type { ImportedStudentRow } from '../../shared/ipc';
+import { assertClassEditable } from './guards';
 import { getStudentDailySummary, listComms, seedDemoHomeroomData } from './homeroom';
+
+export { assertClassEditable };
 
 const uid = () => crypto.randomUUID();
 
@@ -48,14 +51,6 @@ export function saveTeacher(db: DatabaseSync, profile: TeacherProfile): TeacherP
      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json`,
   ).run(JSON.stringify(clean));
   return clean;
-}
-
-export function assertClassEditable(db: DatabaseSync, classId: string) {
-  const row = db
-    .prepare(`SELECT status, deleted_at FROM classes WHERE id = ?`)
-    .get(classId) as { status: string; deleted_at: string | null } | undefined;
-  if (!row || row.deleted_at) throw new AppError('NOT_FOUND', '班级不存在或已移入回收站');
-  if (row.status === 'archived') throw new AppError('VALIDATION', '归档班级为只读，请先恢复班级');
 }
 
 export function listClasses(db: DatabaseSync): ClassRecord[] {

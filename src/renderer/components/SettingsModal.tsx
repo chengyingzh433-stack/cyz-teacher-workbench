@@ -11,15 +11,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { AiConfigView, RemoteModelInfo, VaultInfo } from '../../shared/types';
+import { AI_PRESETS, DEEPSEEK_DEFAULTS } from '../../shared/ai-presets';
 import { listThemes } from '../themes';
 import { Badge, Button, Card, Input, Modal, Select } from './ui/primitives';
-
-const VISION_PRESETS = [
-  { label: '阿里云百炼 Qwen-VL', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-vl-max' },
-  { label: '硅基流动 VL', url: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen2.5-VL-72B-Instruct' },
-  { label: '智谱 GLM-4V', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4v-flash' },
-  { label: '本机 Ollama', url: 'http://127.0.0.1:11434/v1', model: 'qwen2.5vl:7b' },
-];
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -52,7 +46,7 @@ export function SettingsModal({
   // AI form states
   const [gProvider, setGProvider] = useState<'deepseek' | 'custom'>('deepseek');
   const [gUrl, setGUrl] = useState('');
-  const [gModel, setGModel] = useState('deepseek-chat');
+  const [gModel, setGModel] = useState<string>(DEEPSEEK_DEFAULTS.model);
   const [gKey, setGKey] = useState('');
 
   const [vMode, setVMode] = useState<'inherit' | 'custom'>('inherit');
@@ -126,7 +120,7 @@ export function SettingsModal({
   async function pullModels() {
     setPulling(true);
     try {
-      const url = gProvider === 'deepseek' ? 'https://api.deepseek.com' : gUrl;
+      const url = gProvider === 'deepseek' ? DEEPSEEK_DEFAULTS.url : gUrl;
       const list = await window.workbenchApi.ai.listModels({
         url,
         key: gKey || undefined,
@@ -347,8 +341,8 @@ export function SettingsModal({
                     const p = v as 'deepseek' | 'custom';
                     setGProvider(p);
                     if (p === 'deepseek') {
-                      setGUrl('https://api.deepseek.com');
-                      setGModel('deepseek-chat');
+                      setGUrl(DEEPSEEK_DEFAULTS.url);
+                      setGModel(DEEPSEEK_DEFAULTS.model);
                     }
                   }}
                   className="w-full"
@@ -428,9 +422,9 @@ export function SettingsModal({
                 {vMode === 'custom' && (
                   <div className="flex flex-col gap-1.5 pt-1">
                     <div className="flex flex-wrap gap-1">
-                      {VISION_PRESETS.map((p) => (
+                      {AI_PRESETS.vision.map((p) => (
                         <button
-                          key={p.label}
+                          key={p.id}
                           type="button"
                           onClick={() => {
                             setVUrl(p.url);

@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type * as echarts from 'echarts';
 import {
   AlertTriangle,
   CheckCircle2,
   Crop,
-  Lock,
   Pause,
   Play,
-  Plus,
   RotateCw,
   ScanEye,
-  Sparkles,
-  Trash2,
   Upload,
   ZoomIn,
   ZoomOut,
@@ -20,7 +15,6 @@ import type {
   ExamDetail,
   GradingItemDetail,
   GradingSubmission,
-  KnowledgeStatRow,
   StudentMember,
 } from '../../../shared/types';
 import {
@@ -31,34 +25,24 @@ import {
   type GradingResult,
 } from '../../../shared/ai-engine';
 import { formatScore, parsePoints, points } from '../../../shared/score-policy';
-import { getTheme } from '../../themes';
 import {
   Badge,
   Button,
   Card,
-  Dropzone,
   Input,
-  Modal,
   Select,
   Slider,
   Textarea,
 } from '../../components/ui/primitives';
-import { EChart } from '../../components/ui/EChart';
+import { GradingItemsTab } from './GradingItemsTab';
+import { GradingItemModal } from './GradingItemModal';
+import { GradingKnowledgeTab } from './GradingKnowledgeTab';
 
 function quickScorePills(maxUnits: number, stepUnits: number): string[] {
   if (stepUnits <= 0 || maxUnits < 0 || Math.floor(maxUnits / stepUnits) > 12) return [];
   const res: string[] = [];
   for (let u = 0; u <= maxUnits; u += stepUnits) res.push(points(u));
   return res;
-}
-
-async function fileToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ''));
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
 }
 
 async function fetchUrlAsBlob(url: string): Promise<Blob> {
@@ -91,17 +75,6 @@ export function GradingWorkbenchTab({
   // Item Editor Modal state
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GradingItemDetail | null>(null);
-  const [iLabel, setILabel] = useState('15');
-  const [iPrompt, setIPrompt] = useState('');
-  const [iRefAns, setIRefAns] = useState('');
-  const [iRefImgs, setIRefImgs] = useState<string[]>([]);
-  const [iCriteria, setICriteria] = useState<
-    Array<{ unitLabel: string; description: string; maxScore: string; stepScore: string }>
-  >([
-    { unitLabel: '第 1 问', description: '正确写出核心物理规律公式', maxScore: '4', stepScore: '1' },
-    { unitLabel: '第 1 问', description: '代入计算结果与单位正确', maxScore: '6', stepScore: '1' },
-  ]);
-  const [aiBreaking, setAiBreaking] = useState(false);
 
   // Studio Image & Crop state
   const [imgZoom, setImgZoom] = useState(1);
@@ -123,11 +96,6 @@ export function GradingWorkbenchTab({
   const [batchRunning, setBatchRunning] = useState(false);
   const [countdownMs, setCountdownMs] = useState(0);
   const batchStopRef = useRef(false);
-
-  // Knowledge points state
-  const [kpInput, setKpInput] = useState('');
-  const [kpStats, setKpStats] = useState<KnowledgeStatRow[]>([]);
-  const [kpWeights, setKpWeights] = useState<Record<string, number>>({});
 
   const items = detail.gradingItems;
   const currentItem = items.find((i) => i.id === selectedItemId) || items[0] || null;
@@ -155,12 +123,6 @@ export function GradingWorkbenchTab({
   useEffect(() => {
     void loadSubmissions();
   }, [detail.exam.id, currentItem?.id]);
-
-  useEffect(() => {
-    if (subTab === 'knowledge') {
-      window.workbenchApi.grading.getKnowledgeStats(detail.exam.id).then(setKpStats);
-    }
-  }, [subTab, detail.exam.id, detail.gradingItems]);
 
   // Sync score inputs when switching active submission
   useEffect(() => {
@@ -199,88 +161,7 @@ export function GradingWorkbenchTab({
 
   function openItemEditor(item: GradingItemDetail | null) {
     setEditingItem(item);
-    setILabel(item?.label || String(items.length + 1));
-    setIPrompt(item?.prompt || '');
-    setIRefAns(item?.rubric?.referenceAnswer || '');
-    setIRefImgs([]);
-    if (item?.rubric) {
-      const unitMap = new Map(item.scoringUnits.map((u) => [u.id, u.label]));
-      setICriteria(
-        item.rubric.criteria.map((c) => ({
-          unitLabel: unitMap.get(c.scoringUnitId) || '第 1 问',
-          description: c.description,
-          maxScore: points(c.maxUnits),
-          stepScore: points(c.stepUnits),
-        })),
-      );
-    } else {
-      setICriteria([
-        { unitLabel: '第 1 问', description: '正确列出公式或思路', maxScore: '4', stepScore: '1' },
-        { unitLabel: '第 1 问', description: '代入计算与单位正确', maxScore: '6', stepScore: '1' },
-      ]);
-    }
     setItemModalOpen(true);
-  }
-
-  async function runAiBreakdown() {
-    setAiBreaking(true);
-    try {
-      const totalHint = iCriteria.reduce((s, c) => s + (Number(c.maxScore) || 0), 0);
-      const res = await window.workbenchApi.ai.breakdownReference({
-        prompt: iPrompt,
-        referenceAnswer: iRefAns,
-        referenceImageDataUrls: iRefImgs,
-        totalScoreHint: totalHint > 0 ? String(totalHint) : undefined,
-      });
-      if (res.referenceAnswer) setIRefAns(res.referenceAnswer);
-      setICriteria(
-        res.criteria.map((c) => ({
-          unitLabel: c.unitLabel,
-          description: c.description,
-          maxScore: c.maxScore,
-          stepScore: c.stepScore,
-        })),
-      );
-      onNotify(`AI 已自动拆解出 ${res.criteria.length} 条评分点，请核对后保存`);
-    } catch (e) {
-      onNotify((e as Error).message, 'err');
-    } finally {
-      setAiBreaking(false);
-    }
-  }
-
-  async function saveItem() {
-    try {
-      const unitNames = [...new Set(iCriteria.map((c) => c.unitLabel.trim() || '第 1 问'))];
-      const scoringUnits = unitNames.map((label) => ({
-        label,
-        maxUnits: iCriteria
-          .filter((c) => (c.unitLabel.trim() || '第 1 问') === label)
-          .reduce((s, c) => s + parsePoints(c.maxScore || '0'), 0),
-      }));
-      const criteria = iCriteria.map((c) => ({
-        scoringUnitIndex: Math.max(0, unitNames.indexOf(c.unitLabel.trim() || '第 1 问')),
-        description: c.description,
-        maxUnits: parsePoints(c.maxScore || '0'),
-        stepUnits: Math.max(50, parsePoints(c.stepScore || '1')),
-        exclusiveGroup: null,
-      }));
-      const saved = await window.workbenchApi.grading.saveItem({
-        examId: detail.exam.id,
-        itemId: editingItem?.id,
-        label: iLabel,
-        prompt: iPrompt,
-        referenceAnswer: iRefAns,
-        scoringUnits,
-        criteria,
-      });
-      setSelectedItemId(saved.id);
-      setItemModalOpen(false);
-      await onReloadExam();
-      onNotify(`已保存「第 ${saved.label} 题」并在本场成绩表中自动关联了对应成绩列`);
-    } catch (e) {
-      onNotify((e as Error).message, 'err');
-    }
   }
 
   async function handleUploadStudentPhoto(files: File[], targetMemberId: string) {
@@ -493,53 +374,6 @@ export function GradingWorkbenchTab({
     setCountdownMs(0);
   }
 
-  // Knowledge Chart
-  const theme = getTheme(themeId);
-  const kpChartOption: echarts.EChartsOption | null = useMemo(() => {
-    if (!kpStats.length) return null;
-    const p = theme.chartPalette;
-    return {
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        backgroundColor: p.tooltipBg,
-        borderColor: p.tooltipBorder,
-        textStyle: { color: p.text, fontSize: 12 },
-        formatter: (params: unknown) => {
-          const item = Array.isArray(params) ? params[0] : params;
-          const idx = (item as { dataIndex: number }).dataIndex;
-          const row = kpStats[idx];
-          return `${row.name}<br/>得分率：<b>${row.rate.toFixed(1)}%</b><br/>关联题目：${row.itemLabels.join('、') || '无'}`;
-        },
-      },
-      grid: { top: 12, right: 32, bottom: 20, left: 110 },
-      xAxis: {
-        type: 'value',
-        max: 100,
-        axisLabel: { color: p.muted, formatter: '{value}%' },
-        splitLine: { lineStyle: { color: p.grid, type: 'dashed' } },
-      },
-      yAxis: {
-        type: 'category',
-        data: kpStats.map((k) => k.name),
-        axisLabel: { color: p.text, fontSize: 12 },
-      },
-      series: [
-        {
-          type: 'bar',
-          barMaxWidth: 22,
-          data: kpStats.map((k) => ({
-            value: Number(k.rate.toFixed(1)),
-            itemStyle: {
-              borderRadius: [0, 6, 6, 0],
-              color: k.rate < 60 ? '#be2d24' : k.rate < 80 ? '#d97706' : p.primary,
-            },
-          })),
-        },
-      ],
-    };
-  }, [kpStats, theme]);
-
   const currentTotalUnits = useMemo(() => {
     if (!currentItem?.rubric) return 0;
     return currentItem.rubric.criteria.reduce((sum, c) => {
@@ -596,110 +430,17 @@ export function GradingWorkbenchTab({
 
       {/* TAB 1: Items & Rubrics */}
       {subTab === 'items' && (
-        <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-[var(--ink-muted)]">
-              每建一道主观题，系统会自动在「成绩分析」总表中生成对应成绩列；确认打分后实时回填总表。
-            </span>
-            <Button size="sm" variant="primary" disabled={readonly} onClick={() => openItemEditor(null)}>
-              <Plus className="w-4 h-4" /> 添加主观题与细则
-            </Button>
-          </div>
-
-          {!items.length && (
-            <Card className="p-10 text-center">
-              <p className="text-sm text-[var(--ink-muted)] mb-4">
-                本场考试还没有配置手写主观题。新建题目后支持粘贴参考答案让 AI 一键拆解评分点。
-              </p>
-              <Button variant="primary" disabled={readonly} onClick={() => openItemEditor(null)}>
-                <Plus className="w-4 h-4" /> 创建第一道主观题
-              </Button>
-            </Card>
-          )}
-
-          {items.map((item) => {
-            const frozen = Boolean(item.rubric?.frozenAt);
-            return (
-              <Card key={item.id} className="p-4 flex flex-col gap-2.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-[15px] font-semibold">
-                      第 {item.label} 题 · 满分 {formatScore(item.maxUnits)} 分
-                    </h4>
-                    <Badge tone={frozen ? 'ok' : 'warn'}>
-                      {frozen ? '细则已定稿启用' : '草稿（可编辑）'}
-                    </Badge>
-                    <Badge>
-                      {item.rubric?.criteria.length || 0} 个得分点 · 已批 {item.confirmedCount}/{item.submissionCount}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {!frozen && (
-                      <>
-                        <Button size="xs" disabled={readonly} onClick={() => openItemEditor(item)}>
-                          编辑细则
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="primary"
-                          disabled={readonly || !item.rubric}
-                          onClick={async () => {
-                            await window.workbenchApi.grading.freezeRubric(item.rubric!.id);
-                            await onReloadExam();
-                            onNotify(`第 ${item.label} 题细则已启用，可进入审稿台阅卷！`);
-                          }}
-                        >
-                          <Lock className="w-3.5 h-3.5" /> 定稿启用
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="xs"
-                      variant="soft"
-                      onClick={() => {
-                        setSelectedItemId(item.id);
-                        setSubTab('studio');
-                      }}
-                    >
-                      进入审稿台 →
-                    </Button>
-                    {!readonly && (
-                      <Button
-                        size="xs"
-                        variant="danger-ghost"
-                        onClick={async () => {
-                          await window.workbenchApi.grading.deleteItem(item.id);
-                          await onReloadExam();
-                          onNotify(`已删除第 ${item.label} 题`);
-                        }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {item.prompt && (
-                  <p className="text-[13px] text-[var(--ink-secondary)] whitespace-pre-wrap">{item.prompt}</p>
-                )}
-                {item.rubric && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 pt-1">
-                    {item.rubric.criteria.map((c, idx) => (
-                      <div
-                        key={c.id}
-                        className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-muted)]/70 text-[12.5px] flex items-center justify-between gap-2"
-                      >
-                        <span className="truncate">
-                          {idx + 1}. {c.description}
-                        </span>
-                        <Badge tone="accent">{formatScore(c.maxUnits)} 分</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+        <GradingItemsTab
+          items={items}
+          readonly={readonly}
+          onOpenItemEditor={openItemEditor}
+          onEnterStudio={(itemId) => {
+            setSelectedItemId(itemId);
+            setSubTab('studio');
+          }}
+          onReloadExam={onReloadExam}
+          onNotify={onNotify}
+        />
       )}
 
       {/* TAB 2: Professional Dark-Canvas Studio + Light Scoring Inspector */}
@@ -1161,239 +902,29 @@ export function GradingWorkbenchTab({
 
       {/* TAB 3: Knowledge Points & Weakness ECharts */}
       {subTab === 'knowledge' && (
-        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-3 pr-1">
-          <Card className="p-4 flex flex-col gap-3">
-            <h4 className="text-[14px] font-semibold">本场知识点管理与权重分配</h4>
-            <div className="flex gap-2">
-              <Input
-                value={kpInput}
-                onChange={(e) => setKpInput(e.target.value)}
-                placeholder="输入知识点（逗号分隔批量添加，如：牛顿第二定律, 受力分析, 图像法）"
-                className="h-8 text-xs"
-              />
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={readonly || !kpInput.trim()}
-                onClick={async () => {
-                  const nextNames = [
-                    ...detail.knowledgePoints.map((k) => k.name),
-                    ...kpInput.split(/[,，、\n]/).map((s) => s.trim()).filter(Boolean),
-                  ];
-                  await window.workbenchApi.grading.saveKnowledgePoints(detail.exam.id, nextNames);
-                  setKpInput('');
-                  await onReloadExam();
-                  onNotify('已更新本场知识点');
-                }}
-              >
-                添加
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {detail.knowledgePoints.map((kp) => (
-                <Badge key={kp.id} tone="accent">
-                  {kp.name}
-                </Badge>
-              ))}
-            </div>
-
-            {currentItem && detail.knowledgePoints.length > 0 && (
-              <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">
-                    为「第 {currentItem.label} 题」分配知识点权重（合计 100%）
-                  </span>
-                  <Button
-                    size="xs"
-                    onClick={() => {
-                      const n = detail.knowledgePoints.length;
-                      const each = Math.floor(100 / n);
-                      const next: Record<string, number> = {};
-                      detail.knowledgePoints.forEach((k, i) => {
-                        next[k.id] = i === 0 ? 100 - each * (n - 1) : each;
-                      });
-                      setKpWeights(next);
-                    }}
-                  >
-                    一键均分
-                  </Button>
-                </div>
-                {detail.knowledgePoints.map((kp) => (
-                  <div key={kp.id} className="flex items-center gap-2 text-xs">
-                    <span className="w-28 truncate">{kp.name}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={kpWeights[kp.id] ?? 0}
-                      onChange={(e) =>
-                        setKpWeights({ ...kpWeights, [kp.id]: Math.max(0, Math.min(100, Number(e.target.value))) })
-                      }
-                      className="w-16 h-7 px-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] tabular-nums"
-                    />
-                    <span>%</span>
-                  </div>
-                ))}
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={readonly}
-                  onClick={async () => {
-                    try {
-                      const allocs = detail.knowledgePoints
-                        .map((k) => ({ knowledgeId: k.id, weightBps: (kpWeights[k.id] || 0) * 100 }))
-                        .filter((a) => a.weightBps > 0);
-                      await window.workbenchApi.grading.saveItemKnowledgeMap(currentItem.id, allocs);
-                      const st = await window.workbenchApi.grading.getKnowledgeStats(detail.exam.id);
-                      setKpStats(st);
-                      await onReloadExam();
-                      onNotify('已保存知识点权重并刷新讲评统计');
-                    } catch (e) {
-                      onNotify((e as Error).message, 'err');
-                    }
-                  }}
-                >
-                  保存权重映射
-                </Button>
-              </div>
-            )}
-          </Card>
-
-          <Card className="p-4 flex flex-col gap-3">
-            <h4 className="text-[14px] font-semibold">薄弱知识点得分率排行（讲评优先级）</h4>
-            {kpChartOption ? (
-              <EChart option={kpChartOption} height={260} />
-            ) : (
-              <div className="py-16 text-center text-xs text-[var(--ink-muted)]">
-                给主观题分配知识点权重并确认至少 1 份答卷得分后，这里将自动生成薄弱点排行图。
-              </div>
-            )}
-          </Card>
-        </div>
+        <GradingKnowledgeTab
+          detail={detail}
+          currentItem={currentItem}
+          themeId={themeId}
+          readonly={readonly}
+          onReloadExam={onReloadExam}
+          onNotify={onNotify}
+        />
       )}
 
       {/* Item & Rubric Editor Modal (with AI Reference Breakdown!) */}
-      <Modal
+      <GradingItemModal
         open={itemModalOpen}
         onOpenChange={setItemModalOpen}
-        title={editingItem ? `编辑第 ${editingItem.label} 题细则` : '新建主观题与评分细则'}
-        subtitle="支持粘贴参考答案文字或上传参考答案照片，由 AI 一键拆解出得分点清单"
-        size="lg"
-        footer={
-          <>
-            <Button onClick={() => setItemModalOpen(false)}>取消</Button>
-            <Button variant="primary" onClick={() => void saveItem()}>
-              保存题目与细则
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3.5">
-          <div className="grid grid-cols-4 gap-3">
-            <label className="flex flex-col gap-1 text-xs font-medium">
-              题号 *
-              <Input value={iLabel} onChange={(e) => setILabel(e.target.value)} placeholder="如 15" />
-            </label>
-            <label className="col-span-3 flex flex-col gap-1 text-xs font-medium">
-              题干摘要（可选）
-              <Input value={iPrompt} onChange={(e) => setIPrompt(e.target.value)} placeholder="简述本题情景与设问" />
-            </label>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">参考答案（用于 AI 自动拆点与阶段二判分）</span>
-              <Button size="xs" variant="soft" disabled={aiBreaking} onClick={() => void runAiBreakdown()}>
-                <Sparkles className="w-3.5 h-3.5" /> {aiBreaking ? 'AI 拆解中…' : 'AI 一键拆解得分点'}
-              </Button>
-            </div>
-            <Textarea
-              rows={3}
-              value={iRefAns}
-              onChange={(e) => setIRefAns(e.target.value)}
-              placeholder="粘贴参考答案公式与给分步骤，或下方上传参考答案照片…"
-            />
-            <Dropzone
-              accept="image/png,image/jpeg,image/webp"
-              title="上传参考答案照片（可选，支持图文拆点）"
-              fileName={iRefImgs.length ? `已添加 ${iRefImgs.length} 张参考图` : undefined}
-              onFiles={async (files) => {
-                const urls = await Promise.all(files.slice(0, 4).map(fileToDataUrl));
-                setIRefImgs(urls);
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold">得分点清单</span>
-              <Button
-                size="xs"
-                onClick={() =>
-                  setICriteria([
-                    ...iCriteria,
-                    { unitLabel: '第 1 问', description: '', maxScore: '2', stepScore: '1' },
-                  ])
-                }
-              >
-                <Plus className="w-3.5 h-3.5" /> 加一条得分点
-              </Button>
-            </div>
-            {iCriteria.map((c, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                <Input
-                  value={c.unitLabel}
-                  onChange={(e) => {
-                    const next = [...iCriteria];
-                    next[idx] = { ...c, unitLabel: e.target.value };
-                    setICriteria(next);
-                  }}
-                  placeholder="小题"
-                  className="col-span-2 h-8 text-xs"
-                />
-                <Input
-                  value={c.description}
-                  onChange={(e) => {
-                    const next = [...iCriteria];
-                    next[idx] = { ...c, description: e.target.value };
-                    setICriteria(next);
-                  }}
-                  placeholder="评分点描述（如：列出牛顿第二定律 F=ma）"
-                  className="col-span-6 h-8 text-xs"
-                />
-                <Input
-                  value={c.maxScore}
-                  onChange={(e) => {
-                    const next = [...iCriteria];
-                    next[idx] = { ...c, maxScore: e.target.value };
-                    setICriteria(next);
-                  }}
-                  placeholder="满分"
-                  className="col-span-2 h-8 text-xs tabular-nums"
-                />
-                <Input
-                  value={c.stepScore}
-                  onChange={(e) => {
-                    const next = [...iCriteria];
-                    next[idx] = { ...c, stepScore: e.target.value };
-                    setICriteria(next);
-                  }}
-                  placeholder="步长"
-                  className="col-span-1 h-8 text-xs tabular-nums"
-                />
-                <Button
-                  size="xs"
-                  variant="danger-ghost"
-                  disabled={iCriteria.length <= 1}
-                  onClick={() => setICriteria(iCriteria.filter((_, i) => i !== idx))}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
+        examId={detail.exam.id}
+        editingItem={editingItem}
+        nextItemNumber={items.length + 1}
+        onSaved={async (savedItemId) => {
+          setSelectedItemId(savedItemId);
+          await onReloadExam();
+        }}
+        onNotify={onNotify}
+      />
     </div>
   );
 }

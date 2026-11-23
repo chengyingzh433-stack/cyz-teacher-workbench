@@ -102,21 +102,6 @@ export function moveSeat(
   return next;
 }
 
-export function exchangeSeats(
-  plan: SeatPlan,
-  members: StudentMember[],
-  firstId: string,
-  secondId: string,
-): SeatAssignment[] {
-  if (firstId === secondId) return plan.assignments.map((x) => ({ ...x }));
-  const target = plan.assignments.find((x) => x.membershipId === secondId);
-  if (target) return moveSeat(plan, members, firstId, { row: target.row, col: target.col });
-  const source = plan.assignments.find((x) => x.membershipId === firstId);
-  return source
-    ? moveSeat(plan, members, secondId, { row: source.row, col: source.col })
-    : plan.assignments.map((x) => ({ ...x }));
-}
-
 /** Smart seating using exam scores (S-snake, high-low desk pairs, gradient, balanced groups). */
 export function arrangeByScores(params: {
   rows: number;
