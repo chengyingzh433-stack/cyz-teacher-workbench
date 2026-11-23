@@ -1,3 +1,23 @@
+import type {
+  HomeroomCheckKind,
+  HomeroomCheckinType,
+  HomeroomCommStatus,
+  HomeroomCommType,
+  HomeroomMemoTag,
+  HomeroomTaskCategory,
+  HomeroomTaskPriority,
+} from './homeroom-materials';
+
+export type {
+  HomeroomCheckKind,
+  HomeroomCheckinType,
+  HomeroomCommStatus,
+  HomeroomCommType,
+  HomeroomMemoTag,
+  HomeroomTaskCategory,
+  HomeroomTaskPriority,
+};
+
 export class AppError extends Error {
   constructor(
     public code: string,
@@ -109,11 +129,26 @@ export interface StudentSubmissionBrief {
   updatedAt: string;
 }
 
+export interface StudentDailySummary {
+  attendanceAnomalies: number;
+  homeworkMissing: number;
+  receiptMissing: number;
+  disciplineCount: number;
+  recentBatches: Array<{
+    id: string;
+    checkDate: string;
+    kind: HomeroomCheckKind;
+    title: string;
+  }>;
+}
+
 export interface StudentGrowthProfile {
   member: StudentMember;
   seat: { planId: string; planName: string; row: number; col: number } | null;
   examHistory: StudentExamPoint[];
   recentSubmissions: StudentSubmissionBrief[];
+  comms: StudentCommRecord[];
+  dailySummary: StudentDailySummary;
 }
 
 export interface ExamSummary {
@@ -392,4 +427,121 @@ export interface CharacterCatalog {
     desk: { sheetId: string; rect: [number, number, number, number] };
     chairFront: { sheetId: string; rect: [number, number, number, number] };
   };
+}
+
+// ============================================================================
+// Homeroom Workbench (带班工作台) Types
+// ============================================================================
+
+export interface HomeroomNoteEntry {
+  id: string;
+  time: string;
+  text: string;
+}
+
+export interface HomeroomNoteDayGroup {
+  date: string;
+  entries: HomeroomNoteEntry[];
+}
+
+export interface HomeroomTask {
+  id: string;
+  classId: string;
+  title: string;
+  category: HomeroomTaskCategory;
+  priority: HomeroomTaskPriority;
+  taskDate: string;
+  done: boolean;
+  createdAt: string;
+}
+
+export interface StudentCommRecord {
+  id: string;
+  classId: string;
+  membershipId: string | null;
+  studentName: string;
+  commType: HomeroomCommType;
+  commDate: string;
+  reason: string;
+  studentPerf: string;
+  parentFeedback: string;
+  actionPlan: string;
+  followUpDate: string;
+  status: HomeroomCommStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HomeroomMemo {
+  id: string;
+  classId: string;
+  title: string;
+  tag: HomeroomMemoTag;
+  content: string;
+  memoDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedMaterialRecord {
+  id: string;
+  classId: string;
+  themeKey: string;
+  title: string;
+  content: string;
+  savedDate: string;
+  createdAt: string;
+}
+
+export interface HomeroomCheckBatch {
+  id: string;
+  classId: string;
+  checkDate: string;
+  kind: HomeroomCheckKind;
+  title: string;
+  totalCount: number;
+  anomalyMemberIds: string[];
+  createdAt: string;
+}
+
+export interface HomeroomMonthlyStatsNumbers {
+  classSize: number;
+  attendCount: number;
+  absentCount: number;
+  hwShould: number;
+  hwMiss: number;
+  disciplineCount: number;
+  receiptShould: number;
+  receiptGot: number;
+}
+
+export interface HomeroomMonthlyStatsView {
+  yearMonth: string;
+  hasManualOverride: boolean;
+  manual: (HomeroomMonthlyStatsNumbers & { updatedAt: string }) | null;
+  auto: HomeroomMonthlyStatsNumbers & {
+    meetingCount: number;
+    commCount: number;
+    batchCount: number;
+  };
+  effective: HomeroomMonthlyStatsNumbers & {
+    meetingCount: number;
+    commCount: number;
+  };
+}
+
+export interface HomeroomDashboardSummary {
+  todayDate: string;
+  todayTodoCount: number;
+  todayDoneCount: number;
+  pendingFollowUpCount: number;
+  pendingSafetyTaskCount: number;
+  pendingFollowUpMemberIds: string[];
+  todayFocusMinutes: number;
+  checkinTotals: Record<HomeroomCheckinType, number>;
+  todayCheckins: Record<HomeroomCheckinType, boolean>;
+  recent7Days: Array<{
+    date: string;
+    checkins: Record<HomeroomCheckinType, boolean>;
+  }>;
 }

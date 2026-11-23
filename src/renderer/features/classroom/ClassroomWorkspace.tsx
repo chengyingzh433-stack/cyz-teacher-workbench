@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Check,
+  ClipboardCheck,
   Copy,
   Dices,
   Edit2,
@@ -8,20 +10,24 @@ import {
   Plus,
   Search,
   Sparkles,
+  Timer,
   Undo2,
   UserMinus,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import type {
   ClassRecord,
   ExamSummary,
+  HomeroomCheckKind,
   ScoreSeatingStrategy,
   SeatAssignment,
   SeatPlan,
   StudentMember,
   TeacherProfile,
 } from '../../../shared/types';
+import { HOMEROOM_CHECK_KINDS, localTodayStr } from '../../../shared/homeroom-materials';
 import {
   moveSeat,
   resizeAssignments,
@@ -39,6 +45,7 @@ import {
   Switch,
 } from '../../components/ui/primitives';
 import { Avatar } from './SpriteArt';
+import { FocusTimerWidget } from './FocusTimerWidget';
 import { VectorClassroom } from './VectorClassroom';
 
 export function ClassroomWorkspace({
@@ -47,6 +54,9 @@ export function ClassroomWorkspace({
   members,
   exams,
   themeId,
+  followUpIds,
+  todayFocusMinutes = 0,
+  onHomeroomChanged,
   onOpenProfile,
   onNotify,
 }: {
@@ -55,6 +65,9 @@ export function ClassroomWorkspace({
   members: StudentMember[];
   exams: ExamSummary[];
   themeId: string;
+  followUpIds?: Set<string>;
+  todayFocusMinutes?: number;
+  onHomeroomChanged?: () => void;
   onOpenProfile: (membershipId: string) => void;
   onNotify: (msg: string, tone?: 'ok' | 'err') => void;
 }) {
@@ -82,6 +95,22 @@ export function ClassroomWorkspace({
   const [smartStrategy, setSmartStrategy] = useState<ScoreSeatingStrategy>('pair-help');
   const [busy, setBusy] = useState(false);
 
+  // Quick-Check mode (seat-map attendance / homework / receipt / discipline registration)
+  const [checkActive, setCheckActive] = useState(false);
+  const [checkKind, setCheckKind] = useState<HomeroomCheckKind>('attendance');
+  const [checkDate, setCheckDate] = useState(() => localTodayStr());
+  const [checkTitle, setCheckTitle] = useState<string>(HOMEROOM_CHECK_KINDS.attendance.defaultTitle);
+  const [checkAnomalyIds, setCheckAnomalyIds] = useState<Set<string>>(new Set());
+  const [savingCheck, setSavingCheck] = useState(false);
+
+  // Floating classroom / prep focus timer
+  const [timerOpen, setTimerOpen] = useState(false);
+  const [localFocusMin, setLocalFocusMin] = useState(todayFocusMinutes);
+
+  useEffect(() => {
+    setLocalFocusMin(todayFocusMinutes);
+  }, [todayFocusMinutes]);
+
   const readonly = cls.status === 'archived';
 
   async function refreshPlans(preferId?: string) {
@@ -93,6 +122,8 @@ export function ClassroomWorkspace({
 
   useEffect(() => {
     setEditing(false);
+    setCheckActive(false);
+    setCheckAnomalyIds(new Set());
     setSelected(null);
     setUndo(null);
     setHighlighted(null);
@@ -299,14 +330,43 @@ export function ClassroomWorkspace({
         </Badge>
 
         {!editing && (
-          <Button
-            size="sm"
-            variant="soft"
-            disabled={!plan?.assignments.length || rolling}
-            onClick={startRandomPick}
-          >
-            <Dices className="w-4 h-4" /> {rolling ? '抽签中…' : '随机点名'}
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant={checkActive ? 'primary' : 'default'}
+              disabled={readonly || !plan?.assignments.length}
+              onClick={() => {
+                setCheckActive((v) => {
+                  const next = !v;
+                  if (next) {
+                    setCheckKind('attendance');
+                    setCheckDate(localTodayStr());
+                    setCheckTitle(HOMEROOM_CHECK_KINDS.attendance.defaultTitle);
+                    setCheckAnomalyIds(new Set());
+                  }
+                  return next;
+                });
+              }}
+            >
+              <ClipboardCheck className="w-4 h-4" /> {checkActive ? '退出点检' : '快速点检'}
+            </Button>
+            <Button
+              size="sm"
+              variant={timerOpen ? 'primary' : 'default'}
+              onClick={() => setTimerOpen((v) => !v)}
+              title="打开课堂 / 备课专注倒计时"
+            >
+              <Timer className="w-4 h-4" /> 计时器
+            </Button>
+            <Button
+              size="sm"
+              variant="soft"
+              disabled={!plan?.assignments.length || rolling}
+              onClick={startRandomPick}
+            >
+              <Dices className="w-4 h-4" /> {rolling ? '抽签中…' : '随机点名'}
+            </Button>
+          </>
         )}
 
         <label className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--ink-secondary)] cursor-pointer select-none px-1">
@@ -356,6 +416,7 @@ export function ClassroomWorkspace({
           disabled={readonly || !plan}
           onClick={() => {
             setEditing((v) => !v);
+            setCheckActive(false);
             setSelected(null);
             setFitView(true);
             setZoom(1);
@@ -365,8 +426,100 @@ export function ClassroomWorkspace({
         </Button>
       </Card>
 
+      {/* Inline Seat-Map Quick-Check Bar */}
+      {checkActive && !editing && (
+        <Card className="px-3.5 py-2.5 flex items-center flex-wrap gap-2.5 shrink-0 border-[var(--accent)]/40 bg-[var(--accent-soft)]/35">
+          <div className="flex items-center gap-1">
+            {(Object.keys(HOMEROOM_CHECK_KINDS) as HomeroomCheckKind[]).map((k) => {
+              const def = HOMEROOM_CHECK_KINDS[k];
+              const active = checkKind === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setCheckKind(k);
+                    setCheckTitle(def.defaultTitle);
+                    setCheckAnomalyIds(new Set());
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                      : 'bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
+                  }`}
+                >
+                  {def.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <Input
+            value={checkTitle}
+            onChange={(e) => setCheckTitle(e.target.value)}
+            placeholder="点检事项名称"
+            className="h-8 w-44 text-xs"
+          />
+          <input
+            type="date"
+            value={checkDate}
+            onChange={(e) => setCheckDate(e.target.value)}
+            className="h-8 px-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-strong)] text-xs text-[var(--ink-primary)]"
+          />
+
+          <Badge tone={checkAnomalyIds.size > 0 ? 'danger' : 'ok'}>
+            已标记 {HOMEROOM_CHECK_KINDS[checkKind].anomalyLabel}：{checkAnomalyIds.size} / {members.length} 人
+          </Badge>
+
+          <div className="flex-1 text-xs text-[var(--ink-muted)] truncate hidden xl:block">
+            直接点击教室中对应座位标记/取消，未点选的学生默认为「{HOMEROOM_CHECK_KINDS[checkKind].normalLabel}」
+          </div>
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            {checkAnomalyIds.size > 0 && (
+              <Button size="xs" variant="ghost" onClick={() => setCheckAnomalyIds(new Set())}>
+                清空标记
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={savingCheck}
+              onClick={async () => {
+                setSavingCheck(true);
+                try {
+                  await window.workbenchApi.homeroom.saveCheckBatch({
+                    classId: cls.id,
+                    checkDate,
+                    kind: checkKind,
+                    title: checkTitle.trim() || HOMEROOM_CHECK_KINDS[checkKind].defaultTitle,
+                    totalCount: members.length,
+                    anomalyMemberIds: [...checkAnomalyIds],
+                  });
+                  onHomeroomChanged?.();
+                  setCheckActive(false);
+                  setCheckAnomalyIds(new Set());
+                  onNotify(
+                    `已保存「${checkTitle.trim() || HOMEROOM_CHECK_KINDS[checkKind].label}」（${checkAnomalyIds.size} 人${HOMEROOM_CHECK_KINDS[checkKind].anomalyLabel}），已自动计入月度统计`,
+                  );
+                } catch (e) {
+                  onNotify((e as Error).message, 'err');
+                } finally {
+                  setSavingCheck(false);
+                }
+              }}
+            >
+              <Check className="w-3.5 h-3.5" /> {savingCheck ? '保存中…' : '保存本次点检'}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={() => setCheckActive(false)} title="退出点检">
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Main Classroom Stage + Optional Waiting Students Drawer */}
-      <div className="flex-1 min-h-0 flex gap-2.5">
+      <div className="flex-1 min-h-0 flex gap-2.5 relative">
         {plan ? (
           <VectorClassroom
             cls={cls}
@@ -380,6 +533,23 @@ export function ClassroomWorkspace({
             front={front}
             zoom={zoom}
             fitView={fitView}
+            followUpIds={followUpIds}
+            checkMode={
+              checkActive && !editing
+                ? {
+                    kind: checkKind,
+                    anomalyIds: checkAnomalyIds,
+                    onToggleAnomaly: (mid) => {
+                      setCheckAnomalyIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(mid)) next.delete(mid);
+                        else next.add(mid);
+                        return next;
+                      });
+                    },
+                  }
+                : null
+            }
             onScale={(s) => {
               scaleRef.current = s;
             }}
@@ -391,6 +561,25 @@ export function ClassroomWorkspace({
           <Card className="flex-1 flex items-center justify-center text-[var(--ink-muted)]">
             请先新建座位方案
           </Card>
+        )}
+
+        {/* Floating Focus Timer Overlay */}
+        {timerOpen && (
+          <div className="absolute right-4 top-4 z-30">
+            <FocusTimerWidget
+              compact
+              readonly={readonly}
+              todayFocusMinutes={localFocusMin}
+              onEarnMinutes={async (mins) => {
+                if (readonly || mins <= 0) return;
+                const res = await window.workbenchApi.homeroom.addFocusMinutes(cls.id, mins);
+                setLocalFocusMin(res.todayFocusMinutes);
+                onHomeroomChanged?.();
+              }}
+              onClose={() => setTimerOpen(false)}
+              onNotify={onNotify}
+            />
+          </div>
         )}
 
         {editing && pending.length > 0 && (

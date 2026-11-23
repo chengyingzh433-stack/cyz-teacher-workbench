@@ -3,8 +3,11 @@ import { Command } from 'cmdk';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   BarChart3,
+  BookOpenText,
+  ClipboardList,
   Globe,
   LayoutGrid,
+  MessageSquareHeart,
   Moon,
   Palette,
   Settings,
@@ -13,8 +16,9 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import type { ClassRecord, ExamSummary, StudentMember } from '../../../shared/types';
+import type { ClassRecord, ExamSummary, HomeroomMemo, StudentMember } from '../../../shared/types';
 import type { NavSpace } from '../../App';
+import type { HomeroomSubTab } from '../../features/homeroom/HomeroomWorkspace';
 import { listThemes } from '../../themes';
 
 export function CommandPalette({
@@ -24,9 +28,11 @@ export function CommandPalette({
   currentClassId,
   members,
   exams,
+  memos = [],
   themeId,
   onSelectClass,
   onSelectSpace,
+  onSelectHomeroomTab,
   onSelectStudent,
   onSelectExam,
   onSelectTheme,
@@ -39,9 +45,11 @@ export function CommandPalette({
   currentClassId: string;
   members: StudentMember[];
   exams: ExamSummary[];
+  memos?: HomeroomMemo[];
   themeId: string;
   onSelectClass: (classId: string) => void;
   onSelectSpace: (space: NavSpace) => void;
+  onSelectHomeroomTab?: (tab: HomeroomSubTab) => void;
   onSelectStudent: (membershipId: string) => void;
   onSelectExam: (examId: string) => void;
   onSelectTheme: (themeId: string) => void;
@@ -71,7 +79,7 @@ export function CommandPalette({
         <Dialog.Content className="fixed left-1/2 top-[16vh] -translate-x-1/2 z-50 focus:outline-none">
           <Dialog.Title className="sr-only">全局快捷命令面板</Dialog.Title>
           <Command label="快捷搜索">
-            <Command.Input placeholder="搜学生姓名/学号、切班级、跳考试、换主题…" autoFocus />
+            <Command.Input placeholder="搜学生/考试/备忘、切带班工作台、换主题…" autoFocus />
             <Command.List>
               <Command.Empty>没有匹配项</Command.Empty>
 
@@ -136,8 +144,29 @@ export function CommandPalette({
                 </Command.Group>
               )}
 
+              {memos.length > 0 && (
+                <Command.Group heading="班级工作备忘录">
+                  {memos.slice(0, 20).map((memo) => (
+                    <Command.Item
+                      key={memo.id}
+                      value={`${memo.title} ${memo.tag} ${memo.content} 备忘`}
+                      onSelect={() =>
+                        run(() => {
+                          onSelectHomeroomTab?.('materials');
+                          onSelectSpace('homeroom');
+                        })
+                      }
+                    >
+                      <BookOpenText className="w-4 h-4 text-[var(--ink-muted)]" />
+                      <span className="flex-1 truncate">{memo.title}</span>
+                      <span className="text-xs text-[var(--ink-muted)]">{memo.tag}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
               <Command.Group heading="工作空间与系统">
-                <Command.Item value="互动教室 排座 classroom" onSelect={() => run(() => onSelectSpace('classroom'))}>
+                <Command.Item value="互动教室 排座 点检 classroom" onSelect={() => run(() => onSelectSpace('classroom'))}>
                   <LayoutGrid className="w-4 h-4" /> 前往「互动教室与排座」
                 </Command.Item>
                 <Command.Item value="学生花名册 档案 roster" onSelect={() => run(() => onSelectSpace('roster'))}>
@@ -145,6 +174,39 @@ export function CommandPalette({
                 </Command.Item>
                 <Command.Item value="统一考试中心 成绩 阅卷 exams" onSelect={() => run(() => onSelectSpace('exams'))}>
                   <BarChart3 className="w-4 h-4" /> 前往「统一考试中心」
+                </Command.Item>
+                <Command.Item
+                  value="带班工作台 打卡 待办 计划 homeroom"
+                  onSelect={() =>
+                    run(() => {
+                      onSelectHomeroomTab?.('daily');
+                      onSelectSpace('homeroom');
+                    })
+                  }
+                >
+                  <ClipboardList className="w-4 h-4" /> 前往「带班工作台 · 今日计划与打卡」
+                </Command.Item>
+                <Command.Item
+                  value="家校沟通 台账 家长 待跟进 comms"
+                  onSelect={() =>
+                    run(() => {
+                      onSelectHomeroomTab?.('comms');
+                      onSelectSpace('homeroom');
+                    })
+                  }
+                >
+                  <MessageSquareHeart className="w-4 h-4" /> 前往「带班工作台 · 家校沟通台账」
+                </Command.Item>
+                <Command.Item
+                  value="德育安全 素材库 防溺水 防欺凌 备忘录 materials"
+                  onSelect={() =>
+                    run(() => {
+                      onSelectHomeroomTab?.('materials');
+                      onSelectSpace('homeroom');
+                    })
+                  }
+                >
+                  <BookOpenText className="w-4 h-4" /> 前往「带班工作台 · 德育安全素材库与备忘」
                 </Command.Item>
                 <Command.Item value="智学网 网阅伴侣 zhixue" onSelect={() => run(() => onSelectSpace('zhixue'))}>
                   <Globe className="w-4 h-4" /> 打开「智学网 / 网阅伴侣」

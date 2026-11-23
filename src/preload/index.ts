@@ -97,6 +97,47 @@ const api: WorkbenchApi = {
     runBlindScan: (params) => ipcRenderer.invoke('ai:runBlindScan', params),
     runScoring: (params) => ipcRenderer.invoke('ai:runScoring', params),
     chatExamTutor: (params) => ipcRenderer.invoke('ai:chatExamTutor', params),
+    generateHomeroomMaterial: (params) => ipcRenderer.invoke('ai:generateHomeroomMaterial', params),
+  },
+
+  homeroom: {
+    getDashboard: (classId, todayDate) =>
+      ipcRenderer.invoke('homeroom:getDashboard', classId, todayDate),
+    toggleCheckin: (classId, type, date, forceValue) =>
+      ipcRenderer.invoke('homeroom:toggleCheckin', classId, type, date, forceValue),
+    addFocusMinutes: (classId, minutes, date) =>
+      ipcRenderer.invoke('homeroom:addFocusMinutes', classId, minutes, date),
+    listNotes: (classId, limitDays) => ipcRenderer.invoke('homeroom:listNotes', classId, limitDays),
+    addNote: (classId, text, date, time) =>
+      ipcRenderer.invoke('homeroom:addNote', classId, text, date, time),
+    deleteNote: (classId, date, noteId) =>
+      ipcRenderer.invoke('homeroom:deleteNote', classId, date, noteId),
+    listTasks: (classId) => ipcRenderer.invoke('homeroom:listTasks', classId),
+    saveTask: (payload) => ipcRenderer.invoke('homeroom:saveTask', payload),
+    toggleTask: (taskId) => ipcRenderer.invoke('homeroom:toggleTask', taskId),
+    delayTask: (taskId, days) => ipcRenderer.invoke('homeroom:delayTask', taskId, days),
+    deleteTask: (taskId) => ipcRenderer.invoke('homeroom:deleteTask', taskId),
+    listComms: (classId, membershipId) =>
+      ipcRenderer.invoke('homeroom:listComms', classId, membershipId),
+    saveComm: (payload) => ipcRenderer.invoke('homeroom:saveComm', payload),
+    toggleCommStatus: (commId) => ipcRenderer.invoke('homeroom:toggleCommStatus', commId),
+    deleteComm: (commId) => ipcRenderer.invoke('homeroom:deleteComm', commId),
+    listMemos: (classId) => ipcRenderer.invoke('homeroom:listMemos', classId),
+    saveMemo: (payload) => ipcRenderer.invoke('homeroom:saveMemo', payload),
+    deleteMemo: (memoId) => ipcRenderer.invoke('homeroom:deleteMemo', memoId),
+    listSavedMaterials: (classId) => ipcRenderer.invoke('homeroom:listSavedMaterials', classId),
+    saveMaterial: (payload) => ipcRenderer.invoke('homeroom:saveMaterial', payload),
+    deleteMaterial: (materialId) => ipcRenderer.invoke('homeroom:deleteMaterial', materialId),
+    listCheckBatches: (classId, yearMonth) =>
+      ipcRenderer.invoke('homeroom:listCheckBatches', classId, yearMonth),
+    saveCheckBatch: (payload) => ipcRenderer.invoke('homeroom:saveCheckBatch', payload),
+    deleteCheckBatch: (batchId) => ipcRenderer.invoke('homeroom:deleteCheckBatch', batchId),
+    getMonthlyStats: (classId, yearMonth) =>
+      ipcRenderer.invoke('homeroom:getMonthlyStats', classId, yearMonth),
+    saveMonthlyManualStats: (payload) =>
+      ipcRenderer.invoke('homeroom:saveMonthlyManualStats', payload),
+    clearMonthlyManualStats: (classId, yearMonth) =>
+      ipcRenderer.invoke('homeroom:clearMonthlyManualStats', classId, yearMonth),
   },
 
   zhixue: {

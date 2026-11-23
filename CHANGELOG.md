@@ -4,6 +4,23 @@
 
 ---
 
+## 1.2.0 融合「带班工作台」：教室可视化点检、家校沟通台账、月度统计与德育素材库 · 2026-11-22
+
+全面融合中学班主任高频日常带班能力，与现有本地 SQLite 资料库、花名册实体、矢量像素教室、学生成长档案抽屉与主进程 AI 引擎深度闭环：
+
+- **新增左侧核心空间「带班工作台」**（[HomeroomWorkspace.tsx](src/renderer/features/homeroom/HomeroomWorkspace.tsx)、[Sidebar.tsx](src/renderer/components/Sidebar.tsx)）：
+  - 顶栏集成 6 段动态问候与 4 个交互预警胶囊（`今日待办`、`今日已办结`、`待跟进家长`、`待落实安全`），点击胶囊直达对应列表。
+  - **今日带班与待办**（[DailyPlanTab.tsx](src/renderer/features/homeroom/DailyPlanTab.tsx)）：4 项带班打卡 + 近 7 天记录表、8 大分类 + 3 级优先级 + 6 个常用模板 + 今日/本周双进度条 + 一键「延后一天」、右侧集成课堂/备课专注倒计时器（增量分钟结算，修复暂停重复累加问题）与「今日带班记」时间戳流水账。
+  - **家校沟通台账**（[CommsLedgerTab.tsx](src/renderer/features/homeroom/CommsLedgerTab.tsx)）：结构化四联单（事由/学生表现/家长反馈/共商整改方案 + 跟进日期），直接绑定本班花名册学生，点击学生姓名直达个人成长档案抽屉对照成绩曲线；编辑记录时保留原跟进状态。
+  - **班级月度统计**（[MonthlyStatsTab.tsx](src/renderer/features/homeroom/MonthlyStatsTab.tsx)）：支持**「教室座位点检自动汇总 + 月底手动微调覆盖」**双模式，自动联动班会打卡与家校沟通次数，采用跟随 7 套主题色板的 Apache ECharts 7 维横向柱状图展示出勤率、作业完成率与安全回执落实率。
+  - **德育安全素材库与工作备忘录**（[MaterialsAndMemosTab.tsx](src/renderer/features/homeroom/MaterialsAndMemosTab.tsx)、[homeroom-materials.ts](src/shared/homeroom-materials.ts)）：内置防溺水、校园防欺凌、交通安全、考前心理疏导、文明礼仪教育 5 大离线主题 × 4 板块文案，一键复制/本地收藏，并支持调用主进程 AI（零学生隐私外发）按本班情况定制改写；右侧集成 6 色标签工作备忘录与全文秒搜。
+- **深度打通「互动教室」与「学生成长档案」**：
+  - [ClassroomWorkspace.tsx](src/renderer/features/classroom/ClassroomWorkspace.tsx) / [VectorClassroom.tsx](src/renderer/features/classroom/VectorClassroom.tsx)：新增「快速点检」模式（在矢量座位图上直接点选晨检考勤/作业缺交/安全回执/违纪学生，自动计入月度统计并自动完成晨检打卡）、悬浮专注倒计时器，以及有待跟进家校沟通学生的座位琥珀色角标。
+  - [StudentProfileDrawer.tsx](src/renderer/features/classroom/StudentProfileDrawer.tsx)：新增「家校与日常」页签，一屏聚合该生的考勤/作业/回执异常统计与个人家校沟通台账。
+  - [db.ts](src/main/db.ts) / [homeroom.ts](src/main/repositories/homeroom.ts)：扩展 7 张原生 SQLite 表无缝兼容既有 Vault，演示班自动注入带班样例数据，`⌘K` 命令面板支持搜备忘录与直达带班工作台。
+
+---
+
 ## 1.1.0 7 套预设主题引擎、macOS 原生真透明毛玻璃与原创图标 · 2026-11-21
 
 在 v1.0.0 桌面端架构基础上，全面升级多风格主题引擎、系统级窗口材质与原创桌面图标：

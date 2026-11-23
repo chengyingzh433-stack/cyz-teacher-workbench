@@ -20,6 +20,7 @@ export function RosterWorkspace({
   cls,
   members,
   allMembers,
+  followUpIds,
   onRefresh,
   onOpenProfile,
   onNotify,
@@ -27,6 +28,7 @@ export function RosterWorkspace({
   cls: ClassRecord;
   members: StudentMember[];
   allMembers: StudentMember[];
+  followUpIds?: Set<string>;
   onRefresh: () => Promise<void>;
   onOpenProfile: (membershipId: string) => void;
   onNotify: (msg: string, tone?: 'ok' | 'err') => void;
@@ -317,6 +319,9 @@ export function RosterWorkspace({
                     >
                       <Avatar gender={m.gender} characterId={m.characterId} size={34} />
                       <span>{m.name}</span>
+                      {followUpIds?.has(m.membershipId) && (
+                        <Badge tone="warn">待跟进</Badge>
+                      )}
                     </button>
                   </td>
                   <td className="py-2 px-4 tabular-nums text-[var(--ink-secondary)]">

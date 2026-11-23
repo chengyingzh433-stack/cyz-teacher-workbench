@@ -15,6 +15,7 @@ import {
 import { pickLeastUsedCharacter } from '../../shared/characters';
 import { withTransaction } from '../db';
 import type { ImportedStudentRow } from '../../shared/ipc';
+import { getStudentDailySummary, listComms, seedDemoHomeroomData } from './homeroom';
 
 const uid = () => crypto.randomUUID();
 
@@ -410,6 +411,8 @@ export function getStudentGrowthProfile(
       : null,
     examHistory,
     recentSubmissions,
+    comms: listComms(db, member.classId, membershipId),
+    dailySummary: getStudentDailySummary(db, member.classId, membershipId),
   };
 }
 
@@ -497,6 +500,9 @@ export function createDemoClass(db: DatabaseSync): ClassRecord {
         insScore.run(uid(), examId, colSubj, m.membershipId, 'score', subj * 100, String(subj), now);
       });
     }
+
+    // Seed homeroom tasks, parent-teacher comms, check batches, memos & material for demo class
+    seedDemoHomeroomData(db, cls.id, members);
   });
 
   return listClasses(db).find((c) => c.id === cls.id)!;

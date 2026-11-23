@@ -304,6 +304,27 @@ app.on('browser-window-created', (_ev, win) => {
       assert.ok(drawerCheck.chartCount >= 1, 'Student growth ECharts chart must render visibly');
       assert.equal(drawerCheck.hasLegend, true, 'Student growth chart must show 个人得分 & 班级均分');
       await saveShot(win, '09-student-growth-drawer.png');
+
+      // Step 9b: Switch drawer to 「家校与日常」 tab -> verify student comm record & daily summary
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('家校与日常'));
+          if (!btn) throw new Error('Drawer homeroom tab not found');
+          btn.click();
+        })()
+      `);
+      await sleep(500);
+      const drawerHrCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.querySelector('[role="dialog"]')?.innerText || '';
+        return {
+          hasDailySummary: text.includes('日常点检记录汇总'),
+          hasCommLedger: text.includes('家校沟通与谈心台账') && text.includes('受力分析'),
+        };
+      })()`);
+      assert.equal(drawerHrCheck.hasDailySummary, true, 'Drawer must display daily check summary');
+      assert.equal(drawerHrCheck.hasCommLedger, true, 'Drawer must display seeded comm record for 林知行');
+      await saveShot(win, '09b-student-drawer-homeroom.png');
+
       await win.webContents.executeJavaScript(`
         (() => {
           const closeBtn = document.querySelector('[role="dialog"] button[aria-label="关闭抽屉"]');
@@ -312,12 +333,137 @@ app.on('browser-window-created', (_ev, win) => {
       `);
       await sleep(300);
 
-      // Step 10: Open Zhixuewang Companion -> verify WebContentsView attaches cleanly with 0 errors
+      // Step 10: Classroom Quick-Check mode + Floating Focus Timer (switch back to studio-light for crisp check)
+      await openSettingsThemeTab(win);
+      await clickThemeCard(win, '现代暖白工作室');
+      await closeSettings(win);
+      await navTo(win, '互动教室');
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const qc = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes('快速点检'));
+          if (!qc) throw new Error('Quick-check button not found');
+          qc.click();
+        })()
+      `);
+      await sleep(350);
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const seatRect = document.querySelector('[data-seat="1"][data-row="0"][data-col="1"] rect');
+          if (!seatRect) throw new Error('Seat cell rect not found');
+          seatRect.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          const timerBtn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').trim() === '计时器');
+          if (!timerBtn) throw new Error('Focus timer toggle button not found');
+          timerBtn.click();
+        })()
+      `);
+      await sleep(500);
+      const qcState = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return {
+          hasMarkedOne: text.includes('已标记 缺勤/请假：1 / 32 人'),
+          hasTimer: text.includes('25:00') && text.includes('专注 / 课堂倒计时'),
+        };
+      })()`);
+      assert.equal(qcState.hasMarkedOne, true, 'Quick-check mode must toggle seat anomaly count to 1 / 32');
+      assert.equal(qcState.hasTimer, true, 'Floating focus timer must open with 25:00');
+      await saveShot(win, '10-classroom-quickcheck-timer.png');
+
+      // Step 11: Homeroom Workbench -> Daily Plan & Check-ins
+      await navTo(win, '带班工作台');
+      await sleep(600);
+      const hrDailyCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return {
+          hasPills: text.includes('今日待办') && text.includes('待跟进家长') && text.includes('待落实安全'),
+          hasCheckins: text.includes('晨检出勤打卡') && text.includes('班会德育打卡'),
+          hasTasks: text.includes('每日带班计划') && text.includes('告家长书'),
+          hasNotes: text.includes('今日带班记'),
+        };
+      })()`);
+      assert.equal(hrDailyCheck.hasPills, true, 'Homeroom top bar must display 4 status pills');
+      assert.equal(hrDailyCheck.hasCheckins, true, 'Homeroom daily tab must display check-in cards');
+      assert.equal(hrDailyCheck.hasTasks, true, 'Homeroom daily tab must display seeded tasks');
+      assert.equal(hrDailyCheck.hasNotes, true, 'Homeroom daily tab must display daily notes');
+      await saveShot(win, '11-homeroom-daily.png');
+
+      // Step 12: Homeroom Workbench -> Parent-Teacher Comms Ledger
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('家校沟通台账'));
+          if (!btn) throw new Error('Comms tab not found');
+          btn.click();
+        })()
+      `);
+      await sleep(500);
+      const hrCommsCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return text.includes('新增家校沟通记录') && text.includes('林知行') && text.includes('共商整改方案');
+      })()`);
+      assert.equal(hrCommsCheck, true, 'Comms ledger tab must show form and seeded student records');
+      await saveShot(win, '12-homeroom-comms.png');
+
+      // Step 13: Homeroom Workbench -> Monthly Stats & ECharts bar chart
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('班级月度统计'));
+          if (!btn) throw new Error('Monthly stats tab not found');
+          btn.click();
+        })()
+      `);
+      await sleep(750);
+      const hrStatsCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        const charts = Array.from(document.querySelectorAll('[_echarts_instance_] svg, [_echarts_instance_] canvas'))
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 200 && r.height > 120;
+          });
+        return {
+          hasRates: text.includes('月度出勤率') && text.includes('作业完成率') && text.includes('安全工作落实率'),
+          hasAutoMode: text.includes('教室点检自动汇总'),
+          chartCount: charts.length,
+        };
+      })()`);
+      assert.equal(hrStatsCheck.hasRates, true, 'Monthly stats must display 3 rate cards');
+      assert.equal(hrStatsCheck.hasAutoMode, true, 'Monthly stats must indicate auto aggregation from classroom checks');
+      assert.ok(hrStatsCheck.chartCount >= 1, 'Monthly stats ECharts bar chart must render visibly');
+      await saveShot(win, '13-homeroom-stats.png');
+
+      // Step 14: Homeroom Workbench -> Moral & Safety Materials Library + Work Memos
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('德育素材与备忘'));
+          if (!btn) throw new Error('Materials & Memos tab not found');
+          btn.click();
+        })()
+      `);
+      await sleep(500);
+      await win.webContents.executeJavaScript(`
+        (() => {
+          const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').trim() === '校园防欺凌');
+          if (!btn) throw new Error('校园防欺凌 theme button not found');
+          btn.click();
+        })()
+      `);
+      await sleep(400);
+      const hrMatCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return (
+          text.includes('向校园欺凌亮剑') &&
+          text.includes('家长会宣讲短脚本') &&
+          text.includes('工作备忘录') &&
+          text.includes('高二年级期中家长会流程')
+        );
+      })()`);
+      assert.equal(hrMatCheck, true, 'Materials & Memos tab must display theme content and seeded memos');
+      await saveShot(win, '14-homeroom-materials-memos.png');
+
+      // Step 15: Open Zhixuewang Companion -> verify WebContentsView attaches cleanly with 0 errors
       await navTo(win, '智学网伴侣');
-      await saveShot(win, '10-zhixue-companion.png');
+      await saveShot(win, '15-zhixue-companion.png');
 
       assert.equal(errors.length, 0, `Encountered runtime errors:\n${errors.join('\n')}`);
-      console.log('[E2E PASS] All 10 real desktop user flows passed with 0 errors!');
+      console.log('[E2E PASS] All 16 real desktop user flows passed with 0 errors!');
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(0);
     } catch (err) {

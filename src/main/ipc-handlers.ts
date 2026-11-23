@@ -12,6 +12,7 @@ import * as classesRepo from './repositories/classes';
 import * as seatingRepo from './repositories/seating';
 import * as examsRepo from './repositories/exams';
 import * as gradingRepo from './repositories/grading';
+import * as homeroomRepo from './repositories/homeroom';
 import * as trashRepo from './repositories/trash';
 
 function wrap<T extends unknown[], R>(fn: (...args: T) => R | Promise<R>) {
@@ -220,6 +221,78 @@ export function registerIpcHandlers(deps: {
     }),
   );
   ipcMain.handle('ai:chatExamTutor', wrap((p) => aiProxy.chatExamTutor(db(), p)));
+  ipcMain.handle(
+    'ai:generateHomeroomMaterial',
+    wrap((p) => aiProxy.generateHomeroomMaterial(db(), p)),
+  );
+
+  // Homeroom Workbench (带班工作台)
+  ipcMain.handle(
+    'homeroom:getDashboard',
+    wrap((cid, today) => homeroomRepo.getDashboardSummary(db(), cid, today)),
+  );
+  ipcMain.handle(
+    'homeroom:toggleCheckin',
+    wrap((cid, type, date, forceVal) => homeroomRepo.toggleCheckin(db(), cid, type, date, forceVal)),
+  );
+  ipcMain.handle(
+    'homeroom:addFocusMinutes',
+    wrap((cid, mins, date) => homeroomRepo.addFocusMinutes(db(), cid, mins, date)),
+  );
+  ipcMain.handle(
+    'homeroom:listNotes',
+    wrap((cid, limit) => homeroomRepo.listNotes(db(), cid, limit)),
+  );
+  ipcMain.handle(
+    'homeroom:addNote',
+    wrap((cid, text, date, time) => homeroomRepo.addNote(db(), cid, text, date, time)),
+  );
+  ipcMain.handle(
+    'homeroom:deleteNote',
+    wrap((cid, date, nid) => homeroomRepo.deleteNote(db(), cid, date, nid)),
+  );
+  ipcMain.handle('homeroom:listTasks', wrap((cid) => homeroomRepo.listTasks(db(), cid)));
+  ipcMain.handle('homeroom:saveTask', wrap((p) => homeroomRepo.saveTask(db(), p)));
+  ipcMain.handle('homeroom:toggleTask', wrap((tid) => homeroomRepo.toggleTask(db(), tid)));
+  ipcMain.handle(
+    'homeroom:delayTask',
+    wrap((tid, days) => homeroomRepo.delayTask(db(), tid, days)),
+  );
+  ipcMain.handle('homeroom:deleteTask', wrap((tid) => homeroomRepo.deleteTask(db(), tid)));
+  ipcMain.handle(
+    'homeroom:listComms',
+    wrap((cid, mid) => homeroomRepo.listComms(db(), cid, mid)),
+  );
+  ipcMain.handle('homeroom:saveComm', wrap((p) => homeroomRepo.saveComm(db(), p)));
+  ipcMain.handle('homeroom:toggleCommStatus', wrap((id) => homeroomRepo.toggleCommStatus(db(), id)));
+  ipcMain.handle('homeroom:deleteComm', wrap((id) => homeroomRepo.deleteComm(db(), id)));
+  ipcMain.handle('homeroom:listMemos', wrap((cid) => homeroomRepo.listMemos(db(), cid)));
+  ipcMain.handle('homeroom:saveMemo', wrap((p) => homeroomRepo.saveMemo(db(), p)));
+  ipcMain.handle('homeroom:deleteMemo', wrap((id) => homeroomRepo.deleteMemo(db(), id)));
+  ipcMain.handle(
+    'homeroom:listSavedMaterials',
+    wrap((cid) => homeroomRepo.listSavedMaterials(db(), cid)),
+  );
+  ipcMain.handle('homeroom:saveMaterial', wrap((p) => homeroomRepo.saveMaterial(db(), p)));
+  ipcMain.handle('homeroom:deleteMaterial', wrap((id) => homeroomRepo.deleteMaterial(db(), id)));
+  ipcMain.handle(
+    'homeroom:listCheckBatches',
+    wrap((cid, ym) => homeroomRepo.listCheckBatches(db(), cid, ym)),
+  );
+  ipcMain.handle('homeroom:saveCheckBatch', wrap((p) => homeroomRepo.saveCheckBatch(db(), p)));
+  ipcMain.handle('homeroom:deleteCheckBatch', wrap((id) => homeroomRepo.deleteCheckBatch(db(), id)));
+  ipcMain.handle(
+    'homeroom:getMonthlyStats',
+    wrap((cid, ym) => homeroomRepo.getMonthlyStats(db(), cid, ym)),
+  );
+  ipcMain.handle(
+    'homeroom:saveMonthlyManualStats',
+    wrap((p) => homeroomRepo.saveMonthlyManualStats(db(), p)),
+  );
+  ipcMain.handle(
+    'homeroom:clearMonthlyManualStats',
+    wrap((cid, ym) => homeroomRepo.clearMonthlyManualStats(db(), cid, ym)),
+  );
 
   // Zhixuewang & Universal WebContentsView Companion
   ipcMain.handle('zhixue:attach', wrap((bounds, url) => zhixue.attach(bounds, url)));

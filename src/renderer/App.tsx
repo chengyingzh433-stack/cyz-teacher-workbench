@@ -1,20 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, Edit2, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import type {
   ClassRecord,
   ExamSummary,
   Gender,
+  HomeroomDashboardSummary,
+  HomeroomMemo,
   StudentMember,
   TeacherProfile,
   VaultInfo,
 } from '../shared/types';
 import { characterPool } from '../shared/characters';
+import { localTodayStr } from '../shared/homeroom-materials';
 import { applyThemeToDocument, getQuickToggleThemeId } from './themes';
 import { ArtRegistry, Avatar } from './features/classroom/SpriteArt';
 import { ClassroomWorkspace } from './features/classroom/ClassroomWorkspace';
 import { StudentProfileDrawer } from './features/classroom/StudentProfileDrawer';
 import { RosterWorkspace } from './features/roster/RosterWorkspace';
 import { ExamCenter } from './features/exams/ExamCenter';
+import {
+  HomeroomWorkspace,
+  type HomeroomSubTab,
+} from './features/homeroom/HomeroomWorkspace';
 import { ZhixueCompanion } from './features/zhixue/ZhixueCompanion';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
@@ -30,7 +37,7 @@ import {
   Select,
 } from './components/ui/primitives';
 
-export type NavSpace = 'classroom' | 'roster' | 'exams' | 'zhixue';
+export type NavSpace = 'classroom' | 'roster' | 'exams' | 'homeroom' | 'zhixue';
 
 export function App() {
   const isMac = window.workbenchApi.platform === 'darwin';
@@ -54,6 +61,9 @@ export function App() {
   const [allMembers, setAllMembers] = useState<StudentMember[]>([]);
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [selectedExamId, setSelectedExamId] = useState('');
+  const [homeroomSummary, setHomeroomSummary] = useState<HomeroomDashboardSummary | null>(null);
+  const [homeroomMemos, setHomeroomMemos] = useState<HomeroomMemo[]>([]);
+  const [requestedHomeroomTab, setRequestedHomeroomTab] = useState<HomeroomSubTab | null>(null);
 
   // Global overlays & modals
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -110,24 +120,49 @@ export function App() {
     setReady(true);
   }, []);
 
+  const followUpIds = useMemo(
+    () => new Set(homeroomSummary?.pendingFollowUpMemberIds || []),
+    [homeroomSummary?.pendingFollowUpMemberIds],
+  );
+
+  const loadHomeroomSummary = useCallback(async (cid: string) => {
+    if (!cid) {
+      setHomeroomSummary(null);
+      setHomeroomMemos([]);
+      return;
+    }
+    const [sum, memos] = await Promise.all([
+      window.workbenchApi.homeroom.getDashboard(cid, localTodayStr()),
+      window.workbenchApi.homeroom.listMemos(cid),
+    ]);
+    setHomeroomSummary(sum);
+    setHomeroomMemos(memos);
+  }, []);
+
   const loadClassData = useCallback(async (cid: string) => {
     if (!cid) {
       setAllMembers([]);
       setExams([]);
+      setHomeroomSummary(null);
+      setHomeroomMemos([]);
       return;
     }
-    const [rosterList, examList, clsList, trash, vInfo] = await Promise.all([
+    const [rosterList, examList, clsList, trash, vInfo, hSum, hMemos] = await Promise.all([
       window.workbenchApi.roster.list(cid, true),
       window.workbenchApi.exams.list(cid),
       window.workbenchApi.classes.list(),
       window.workbenchApi.trash.list(),
       window.workbenchApi.vault.getInfo(),
+      window.workbenchApi.homeroom.getDashboard(cid, localTodayStr()),
+      window.workbenchApi.homeroom.listMemos(cid),
     ]);
     setAllMembers(rosterList);
     setExams(examList);
     setClasses(clsList);
     setTrashCount(trash.length);
     setVaultInfo(vInfo);
+    setHomeroomSummary(hSum);
+    setHomeroomMemos(hMemos);
   }, []);
 
   useEffect(() => {
@@ -206,6 +241,11 @@ export function App() {
         themeId={themeId}
         aiReady={aiReady}
         trashCount={trashCount}
+        homeroomBadge={
+          homeroomSummary
+            ? homeroomSummary.todayTodoCount + homeroomSummary.pendingFollowUpCount || undefined
+            : undefined
+        }
         vaultInfo={vaultInfo}
         onToggleCollapse={() => void handleToggleCollapse()}
         onOpenTeacher={openTeacherForm}
@@ -366,6 +406,9 @@ export function App() {
               members={activeMembers}
               exams={exams}
               themeId={themeId}
+              followUpIds={followUpIds}
+              todayFocusMinutes={homeroomSummary?.todayFocusMinutes || 0}
+              onHomeroomChanged={() => void loadHomeroomSummary(currentClass.id)}
               onOpenProfile={setProfileMemberId}
               onNotify={notify}
             />
@@ -374,8 +417,27 @@ export function App() {
               cls={currentClass}
               members={activeMembers}
               allMembers={allMembers}
+              followUpIds={followUpIds}
               onRefresh={() => loadClassData(currentClass.id)}
               onOpenProfile={setProfileMemberId}
+              onNotify={notify}
+            />
+          ) : space === 'homeroom' ? (
+            <HomeroomWorkspace
+              cls={currentClass}
+              teacher={teacher}
+              members={activeMembers}
+              themeId={themeId}
+              aiReady={aiReady}
+              requestedTab={requestedHomeroomTab}
+              onClearRequestedTab={() => setRequestedHomeroomTab(null)}
+              onHomeroomChanged={() => void loadHomeroomSummary(currentClass.id)}
+              onJumpToClassroom={() => setSpace('classroom')}
+              onOpenStudentProfile={setProfileMemberId}
+              onOpenAiSettings={() => {
+                setSettingsTab('ai');
+                setSettingsOpen(true);
+              }}
               onNotify={notify}
             />
           ) : (
@@ -420,12 +482,14 @@ export function App() {
         currentClassId={currentClass?.id || ''}
         members={activeMembers}
         exams={exams}
+        memos={homeroomMemos}
         themeId={themeId}
         onSelectClass={(id) => {
           setClassId(id);
           setSelectedExamId('');
         }}
         onSelectSpace={setSpace}
+        onSelectHomeroomTab={setRequestedHomeroomTab}
         onSelectStudent={setProfileMemberId}
         onSelectExam={(eid) => setSelectedExamId(eid)}
         onSelectTheme={(id) => void handleChangeTheme(id)}
@@ -447,6 +511,10 @@ export function App() {
           setSelectedExamId(eid);
           setSpace('exams');
         }}
+        onHomeroomChanged={() => {
+          if (currentClass) void loadHomeroomSummary(currentClass.id);
+        }}
+        onNotify={notify}
       />
 
       {/* Settings Modal */}

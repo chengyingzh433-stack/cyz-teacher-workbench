@@ -1,6 +1,13 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ClassRecord, SeatPlan, StudentMember, TeacherProfile } from '../../../shared/types';
+import type {
+  ClassRecord,
+  HomeroomCheckKind,
+  SeatPlan,
+  StudentMember,
+  TeacherProfile,
+} from '../../../shared/types';
+import { HOMEROOM_CHECK_KINDS } from '../../../shared/homeroom-materials';
 import { moveSeat } from '../../../shared/seating';
 import { CharacterArt, SeatedPerson } from './SpriteArt';
 import { useSeatDrag } from './useSeatDrag';
@@ -28,6 +35,8 @@ export function VectorClassroom({
   front,
   zoom,
   fitView,
+  followUpIds,
+  checkMode,
   onScale,
   onSelectSeat,
   onDropSeat,
@@ -44,6 +53,12 @@ export function VectorClassroom({
   front: boolean;
   zoom: number;
   fitView: boolean;
+  followUpIds?: Set<string>;
+  checkMode?: {
+    kind: HomeroomCheckKind;
+    anomalyIds: Set<string>;
+    onToggleAnomaly: (membershipId: string) => void;
+  } | null;
   onScale: (scale: number) => void;
   onSelectSeat: (membershipId: string | null, row: number, col: number) => void;
   onDropSeat: (membershipId: string, row: number, col: number) => void;
@@ -396,6 +411,8 @@ export function VectorClassroom({
               previewTarget && previewTarget.row === row && previewTarget.col === col,
             );
             const isHeld = Boolean(drag && mid === drag.id && !previewTarget);
+            const isFollowUp = Boolean(mid && followUpIds?.has(mid));
+            const isCheckAnomaly = Boolean(mid && checkMode?.anomalyIds.has(mid));
             const facing: 'front' | 'back' =
               front || (member && hoveredId === member.membershipId) ? 'front' : 'back';
 
@@ -422,26 +439,30 @@ export function VectorClassroom({
                   height={stepY - 4}
                   rx={10}
                   fill={
-                    isHighlighted
-                      ? 'rgba(245, 158, 11, 0.25)'
-                      : isSelected || isDragTarget
-                        ? 'var(--accent-soft)'
-                        : editing && !member
-                          ? 'rgba(128,128,128,0.06)'
-                          : 'transparent'
-                  }
-                  stroke={
-                    isHighlighted
-                      ? '#d97706'
-                      : isSelected || isDragTarget
-                        ? 'var(--accent)'
-                        : isDragOrigin
-                          ? 'var(--border-strong)'
-                          : editing && selected && !member
-                            ? 'var(--accent)'
+                    isCheckAnomaly
+                      ? 'rgba(220, 38, 38, 0.16)'
+                      : isHighlighted
+                        ? 'rgba(245, 158, 11, 0.25)'
+                        : isSelected || isDragTarget
+                          ? 'var(--accent-soft)'
+                          : editing && !member
+                            ? 'rgba(128,128,128,0.06)'
                             : 'transparent'
                   }
-                  strokeWidth={isHighlighted || isSelected || isDragTarget ? 2.4 : 1.5}
+                  stroke={
+                    isCheckAnomaly
+                      ? 'var(--danger)'
+                      : isHighlighted
+                        ? '#d97706'
+                        : isSelected || isDragTarget
+                          ? 'var(--accent)'
+                          : isDragOrigin
+                            ? 'var(--border-strong)'
+                            : editing && selected && !member
+                              ? 'var(--accent)'
+                              : 'transparent'
+                  }
+                  strokeWidth={isCheckAnomaly || isHighlighted || isSelected || isDragTarget ? 2.4 : 1.5}
                   strokeDasharray={isDragOrigin || (editing && selected && !member) ? '4 3' : undefined}
                   className={isHighlighted ? 'seat-spotlight' : ''}
                   onPointerDown={(e) => {
@@ -450,12 +471,21 @@ export function VectorClassroom({
                   onClick={() => {
                     if (!seatDrag.allowClick()) return;
                     if (editing) onSelectSeat(mid || null, row, col);
+                    else if (checkMode && mid) checkMode.onToggleAnomaly(mid);
                     else if (mid) onOpenProfile(mid);
                   }}
                 >
                   <title>
                     {member
-                      ? `${member.name}${member.rosterNo ? ` (${member.rosterNo})` : ''} · 第 ${row + 1} 行第 ${col + 1} 列`
+                      ? `${member.name}${member.rosterNo ? ` (${member.rosterNo})` : ''} · 第 ${row + 1} 行第 ${col + 1} 列${
+                          checkMode
+                            ? isCheckAnomaly
+                              ? ` · 已标记：${HOMEROOM_CHECK_KINDS[checkMode.kind].anomalyLabel}`
+                              : ` · 点击标记为${HOMEROOM_CHECK_KINDS[checkMode.kind].anomalyLabel}`
+                            : isFollowUp
+                              ? ' · 有待跟进家校沟通'
+                              : ''
+                        }`
                       : `空座 · 第 ${row + 1} 行第 ${col + 1} 列`}
                   </title>
                 </rect>
@@ -487,24 +517,28 @@ export function VectorClassroom({
                     height={19}
                     rx={isPixelTheme ? 3 : 6}
                     fill={
-                      isHighlighted
-                        ? '#d97706'
-                        : isSelected
-                          ? 'var(--accent)'
-                          : member
-                            ? 'var(--classroom-plate-bg)'
-                            : 'transparent'
+                      isCheckAnomaly
+                        ? 'var(--danger)'
+                        : isHighlighted
+                          ? '#d97706'
+                          : isSelected
+                            ? 'var(--accent)'
+                            : member
+                              ? 'var(--classroom-plate-bg)'
+                              : 'transparent'
                     }
                     stroke={
-                      isHighlighted
-                        ? '#b45309'
-                        : isSelected
-                          ? 'var(--accent)'
-                          : member
-                            ? 'var(--classroom-plate-border)'
-                            : editing
-                              ? 'var(--border-strong)'
-                              : 'transparent'
+                      isCheckAnomaly
+                        ? 'var(--danger)'
+                        : isHighlighted
+                          ? '#b45309'
+                          : isSelected
+                            ? 'var(--accent)'
+                            : member
+                              ? 'var(--classroom-plate-border)'
+                              : editing
+                                ? 'var(--border-strong)'
+                                : 'transparent'
                     }
                     strokeWidth={isPixelTheme ? '1.6' : '1'}
                     strokeDasharray={!member && editing ? '3 2' : undefined}
@@ -516,7 +550,7 @@ export function VectorClassroom({
                     fontSize="11.5"
                     fontWeight={member ? '600' : '400'}
                     fill={
-                      isHighlighted || isSelected
+                      isCheckAnomaly || isHighlighted || isSelected
                         ? '#ffffff'
                         : member
                           ? 'var(--ink-primary)'
@@ -525,6 +559,33 @@ export function VectorClassroom({
                   >
                     {member ? trimCaption(member.name, stepX - 16) : editing ? '空座' : ''}
                   </text>
+                  {/* Amber dot when student has pending parent follow-up */}
+                  {member && isFollowUp && !checkMode && !editing && (
+                    <circle
+                      cx={stepX - 11}
+                      cy={4}
+                      r={4}
+                      fill="#d97706"
+                      stroke="#ffffff"
+                      strokeWidth="1.4"
+                    />
+                  )}
+                  {/* Check-mode status tag at bottom of seat */}
+                  {member && checkMode && isCheckAnomaly && (
+                    <g transform={`translate(${stepX / 2 - 26}, ${stepY - 22})`}>
+                      <rect width={52} height={16} rx={8} fill="var(--danger)" />
+                      <text
+                        x={26}
+                        y={11.5}
+                        textAnchor="middle"
+                        fontSize="9.5"
+                        fontWeight="700"
+                        fill="#ffffff"
+                      >
+                        {HOMEROOM_CHECK_KINDS[checkMode.kind].seatBadge}
+                      </text>
+                    </g>
+                  )}
                 </g>
               </g>
             );

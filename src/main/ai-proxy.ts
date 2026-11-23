@@ -326,4 +326,49 @@ export class MainAiProxy implements AiGateway {
 
     return { reply, sentPreview: contextText };
   }
+
+  /** Customize or expand a moral/safety lesson plan, parent script, or notice for the active class (zero student PII). */
+  async generateHomeroomMaterial(
+    db: DatabaseSync,
+    params: {
+      classId: string;
+      theme: string;
+      partLabel: string;
+      baseContent?: string;
+      customPrompt?: string;
+    },
+  ): Promise<{ content: string }> {
+    const clsRow = db
+      .prepare(`SELECT name, school, term_label FROM classes WHERE id = ?`)
+      .get(params.classId) as { name: string; school: string; term_label: string } | undefined;
+    const memberCnt = db
+      .prepare(`SELECT COUNT(*) AS cnt FROM memberships WHERE class_id = ? AND status = 'active'`)
+      .get(params.classId) as { cnt: number } | undefined;
+
+    const systemPrompt =
+      '你是经验丰富的中学班主任德育与家校沟通文案助手。请严格围绕老师指定的主题与场景，输出可直接用于班会宣讲、家长会发言或微信家长群发布的实用文本。\n' +
+      '要求：1) 语气诚恳专业、接地气、无空话套话；2) 结构清晰、可直接复制使用；3) 严禁编造具体学生姓名或隐私信息。';
+
+    const userPrompt = [
+      `【班级背景】${clsRow?.school ? `${clsRow.school} ` : ''}${clsRow?.name || '当前班级'}${clsRow?.term_label ? `（${clsRow.term_label}）` : ''}，共约 ${memberCnt?.cnt || 0} 人。`,
+      `【教育主题】${params.theme}`,
+      `【目标板块】${params.partLabel}`,
+      params.baseContent ? `【基础参考素材】\n${params.baseContent.slice(0, 3000)}` : '',
+      params.customPrompt
+        ? `【老师补充要求】\n${params.customPrompt.slice(0, 1200)}`
+        : '【老师补充要求】请结合当前中学班级实际场景，优化润色并给出更具操作性与感染力的定制版本。',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const content = await this.chatCompletion(
+      'general',
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { maxTokens: 2048, temperature: 0.55 },
+    );
+    return { content: content.trim() };
+  }
 }

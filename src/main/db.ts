@@ -247,6 +247,100 @@ function initSchema(db: DatabaseSync) {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_audit_logs_exam ON score_audit_logs(exam_id, created_at DESC);
+
+    -- Homeroom Workbench Tables (带班工作台)
+    CREATE TABLE IF NOT EXISTS homeroom_daily_logs (
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      log_date TEXT NOT NULL,
+      checkin_morning INTEGER NOT NULL DEFAULT 0,
+      checkin_teach INTEGER NOT NULL DEFAULT 0,
+      checkin_meeting INTEGER NOT NULL DEFAULT 0,
+      checkin_talk INTEGER NOT NULL DEFAULT 0,
+      focus_minutes INTEGER NOT NULL DEFAULT 0,
+      notes_json TEXT NOT NULL DEFAULT '[]',
+      PRIMARY KEY (class_id, log_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS homeroom_tasks (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT '班级管理',
+      priority TEXT NOT NULL DEFAULT '常规工作',
+      task_date TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_homeroom_tasks_class_date ON homeroom_tasks(class_id, task_date DESC, done);
+
+    CREATE TABLE IF NOT EXISTS student_comms (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      membership_id TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+      student_name TEXT NOT NULL,
+      comm_type TEXT NOT NULL,
+      comm_date TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      student_perf TEXT NOT NULL DEFAULT '',
+      parent_feedback TEXT NOT NULL DEFAULT '',
+      action_plan TEXT NOT NULL DEFAULT '',
+      follow_up_date TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT '待跟进' CHECK (status IN ('待跟进', '已办结')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_student_comms_class ON student_comms(class_id, status, comm_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_student_comms_member ON student_comms(membership_id, comm_date DESC);
+
+    CREATE TABLE IF NOT EXISTS homeroom_memos (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      tag TEXT NOT NULL DEFAULT '其他',
+      content TEXT NOT NULL DEFAULT '',
+      memo_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_homeroom_memos_class ON homeroom_memos(class_id, memo_date DESC);
+
+    CREATE TABLE IF NOT EXISTS saved_materials (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      theme_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      saved_date TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_materials_class ON saved_materials(class_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS homeroom_check_batches (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      check_date TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('attendance', 'homework', 'receipt', 'discipline')),
+      title TEXT NOT NULL,
+      total_count INTEGER NOT NULL,
+      anomaly_member_ids_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_check_batches_month ON homeroom_check_batches(class_id, check_date DESC);
+
+    CREATE TABLE IF NOT EXISTS homeroom_monthly_stats (
+      class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      year_month TEXT NOT NULL,
+      class_size INTEGER NOT NULL DEFAULT 0,
+      attend_count INTEGER NOT NULL DEFAULT 0,
+      absent_count INTEGER NOT NULL DEFAULT 0,
+      hw_should INTEGER NOT NULL DEFAULT 0,
+      hw_miss INTEGER NOT NULL DEFAULT 0,
+      discipline_count INTEGER NOT NULL DEFAULT 0,
+      receipt_should INTEGER NOT NULL DEFAULT 0,
+      receipt_got INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (class_id, year_month)
+    );
   `);
 
   db.prepare(

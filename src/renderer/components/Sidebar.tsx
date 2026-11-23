@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  ClipboardList,
   Globe,
   HardDrive,
   LayoutGrid,
@@ -27,6 +28,7 @@ export function Sidebar({
   themeId,
   aiReady,
   trashCount,
+  homeroomBadge,
   vaultInfo,
   onToggleCollapse,
   onOpenTeacher,
@@ -47,6 +49,7 @@ export function Sidebar({
   themeId: string;
   aiReady: boolean;
   trashCount: number;
+  homeroomBadge?: number;
   vaultInfo: VaultInfo | null;
   onToggleCollapse: () => void;
   onOpenTeacher: () => void;
@@ -79,6 +82,13 @@ export function Sidebar({
       hint: '成绩图表 · AI 阅卷',
       icon: BarChart3,
       badge: currentClass?.examCount,
+    },
+    {
+      id: 'homeroom',
+      label: '带班工作台',
+      hint: '班务计划 · 家校 · 素材',
+      icon: ClipboardList,
+      badge: homeroomBadge,
     },
   ];
 

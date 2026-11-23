@@ -9,13 +9,30 @@ import type {
   ExamSummary,
   GradingItemDetail,
   GradingSubmission,
+  HomeroomCheckBatch,
+  HomeroomCheckKind,
+  HomeroomCheckinType,
+  HomeroomCommStatus,
+  HomeroomCommType,
+  HomeroomDashboardSummary,
+  HomeroomMemo,
+  HomeroomMemoTag,
+  HomeroomMonthlyStatsNumbers,
+  HomeroomMonthlyStatsView,
+  HomeroomNoteDayGroup,
+  HomeroomNoteEntry,
+  HomeroomTask,
+  HomeroomTaskCategory,
+  HomeroomTaskPriority,
   KnowledgeStatRow,
   PhotoAsset,
   RemoteModelInfo,
+  SavedMaterialRecord,
   ScoreSeatingStrategy,
   ScoreStatus,
   SeatAssignment,
   SeatPlan,
+  StudentCommRecord,
   StudentGrowthProfile,
   StudentInput,
   StudentMember,
@@ -245,6 +262,104 @@ export interface WorkbenchApi {
       privacyMode: 'summary-only' | 'anonymized-rows';
       messages: AiChatMessage[];
     }) => Promise<{ reply: string; sentPreview: string }>;
+    generateHomeroomMaterial: (params: {
+      classId: string;
+      theme: string;
+      partLabel: string;
+      baseContent?: string;
+      customPrompt?: string;
+    }) => Promise<{ content: string }>;
+  };
+
+  // Homeroom Workbench (带班工作台)
+  homeroom: {
+    getDashboard: (classId: string, todayDate?: string) => Promise<HomeroomDashboardSummary>;
+    toggleCheckin: (
+      classId: string,
+      type: HomeroomCheckinType,
+      date?: string,
+      forceValue?: boolean,
+    ) => Promise<HomeroomDashboardSummary>;
+    addFocusMinutes: (
+      classId: string,
+      minutes: number,
+      date?: string,
+    ) => Promise<{ todayFocusMinutes: number }>;
+    listNotes: (classId: string, limitDays?: number) => Promise<HomeroomNoteDayGroup[]>;
+    addNote: (
+      classId: string,
+      text: string,
+      date?: string,
+      time?: string,
+    ) => Promise<HomeroomNoteEntry>;
+    deleteNote: (classId: string, date: string, noteId: string) => Promise<void>;
+    listTasks: (classId: string) => Promise<HomeroomTask[]>;
+    saveTask: (payload: {
+      classId: string;
+      id?: string;
+      title: string;
+      category: HomeroomTaskCategory;
+      priority: HomeroomTaskPriority;
+      taskDate: string;
+    }) => Promise<HomeroomTask>;
+    toggleTask: (taskId: string) => Promise<HomeroomTask>;
+    delayTask: (taskId: string, days?: number) => Promise<HomeroomTask>;
+    deleteTask: (taskId: string) => Promise<void>;
+    listComms: (classId: string, membershipId?: string) => Promise<StudentCommRecord[]>;
+    saveComm: (payload: {
+      classId: string;
+      id?: string;
+      membershipId?: string | null;
+      studentName: string;
+      commType: HomeroomCommType;
+      commDate?: string;
+      reason: string;
+      studentPerf: string;
+      parentFeedback: string;
+      actionPlan: string;
+      followUpDate?: string;
+      status?: HomeroomCommStatus;
+    }) => Promise<StudentCommRecord>;
+    toggleCommStatus: (commId: string) => Promise<StudentCommRecord>;
+    deleteComm: (commId: string) => Promise<void>;
+    listMemos: (classId: string) => Promise<HomeroomMemo[]>;
+    saveMemo: (payload: {
+      classId: string;
+      id?: string;
+      title: string;
+      tag: HomeroomMemoTag;
+      content: string;
+      memoDate?: string;
+    }) => Promise<HomeroomMemo>;
+    deleteMemo: (memoId: string) => Promise<void>;
+    listSavedMaterials: (classId: string) => Promise<SavedMaterialRecord[]>;
+    saveMaterial: (payload: {
+      classId: string;
+      themeKey: string;
+      title: string;
+      content: string;
+      savedDate?: string;
+    }) => Promise<SavedMaterialRecord>;
+    deleteMaterial: (materialId: string) => Promise<void>;
+    listCheckBatches: (classId: string, yearMonth?: string) => Promise<HomeroomCheckBatch[]>;
+    saveCheckBatch: (payload: {
+      classId: string;
+      id?: string;
+      checkDate: string;
+      kind: HomeroomCheckKind;
+      title: string;
+      totalCount: number;
+      anomalyMemberIds: string[];
+    }) => Promise<HomeroomCheckBatch>;
+    deleteCheckBatch: (batchId: string) => Promise<void>;
+    getMonthlyStats: (classId: string, yearMonth: string) => Promise<HomeroomMonthlyStatsView>;
+    saveMonthlyManualStats: (
+      payload: HomeroomMonthlyStatsNumbers & { classId: string; yearMonth: string },
+    ) => Promise<HomeroomMonthlyStatsView>;
+    clearMonthlyManualStats: (
+      classId: string,
+      yearMonth: string,
+    ) => Promise<HomeroomMonthlyStatsView>;
   };
 
   // Built-in Zhixuewang & Universal WebView Companion (WebContentsView)
