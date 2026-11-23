@@ -510,3 +510,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+
+--- mathml2omml 0.5.0 (LGPL-3.0-or-later) ---
+This application dynamically loads mathml2omml (unpacked outside app.asar via electron-builder asarUnpack)
+under the GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later).
+Upstream source: https://github.com/nice-table/mathml2omml
+Users may inspect or replace the unpacked node_modules/mathml2omml directory in accordance with the LGPL.
+
+--- Noto Sans SC Regular (SIL Open Font License 1.1) ---
+Copyright 2014-2024 Google LLC. Licensed under the SIL Open Font License, Version 1.1.
+Bundled in resources/fonts/NotoSansSC-Regular.ttf for offline PDF Chinese vector typography.
+
+--- mathlive 0.111.1 (MIT) ---
+--- @tiptap/core, @tiptap/pm, @tiptap/react, @tiptap/starter-kit 3.32.0 (MIT) ---
+--- pdfjs-dist 4.x (Apache-2.0) ---
+--- docx 9.14.0 / docx-preview 0.4.1 / pdf-lib / @pdf-lib/fontkit / pptxgenjs / remark-* / unified / htmlparser2 / saxes / fflate / html-to-image (MIT/ISC/BSD) ---

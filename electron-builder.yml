@@ -12,6 +12,8 @@ extraResources:
   - from: resources
     to: resources
 asar: true
+asarUnpack:
+  - 'node_modules/mathml2omml/**/*'
 mac:
   category: public.app-category.education
   icon: build/icon.icns

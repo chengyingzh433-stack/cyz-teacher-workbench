@@ -1,6 +1,8 @@
 import {
   BarChart3,
+  BookOpenCheck,
   ClipboardList,
+  Compass,
   Globe,
   HardDrive,
   LayoutGrid,
@@ -13,8 +15,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import type { ClassRecord, TeacherProfile, VaultInfo } from '../../shared/types';
-import type { NavSpace } from '../App';
+import type { ClassRecord, NavSpace, PinnableSpace, TeacherProfile, VaultInfo } from '../../shared/types';
 import { getTheme } from '../themes';
 import { Avatar } from '../features/classroom/SpriteArt';
 
@@ -25,6 +26,7 @@ export function Sidebar({
   classes,
   currentClass,
   space,
+  pinnedSpaces,
   themeId,
   aiReady,
   trashCount,
@@ -46,6 +48,7 @@ export function Sidebar({
   classes: ClassRecord[];
   currentClass?: ClassRecord;
   space: NavSpace;
+  pinnedSpaces: PinnableSpace[];
   themeId: string;
   aiReady: boolean;
   trashCount: number;
@@ -61,8 +64,9 @@ export function Sidebar({
   onOpenTrash: () => void;
   onOpenSettings: (tab?: 'theme' | 'ai' | 'vault') => void;
 }) {
-  const navItems: Array<{
-    id: NavSpace;
+  const pinnedSet = new Set<PinnableSpace>(pinnedSpaces);
+  const classNavItems: Array<{
+    id: PinnableSpace;
     label: string;
     hint: string;
     icon: typeof LayoutGrid;
@@ -91,6 +95,29 @@ export function Sidebar({
       badge: homeroomBadge,
     },
   ];
+  const visibleClassNav = classNavItems.filter((item) => pinnedSet.has(item.id));
+  const globalNavItems: Array<{
+    id: PinnableSpace;
+    label: string;
+    hint: string;
+    icon: typeof LayoutGrid;
+    badge?: number;
+  }> = [
+    {
+      id: 'qbank',
+      label: '物理题库',
+      hint: '录题 · 校对 · 组卷',
+      icon: BookOpenCheck,
+      badge: vaultInfo?.qbankQuestionCount || undefined,
+    },
+    {
+      id: 'zhixue',
+      label: '智学网伴侣',
+      hint: '内置网页 · AI 抓图填分',
+      icon: Globe,
+    },
+  ];
+  const visibleGlobalNav = globalNavItems.filter((item) => pinnedSet.has(item.id));
 
   return (
     <aside
@@ -215,14 +242,38 @@ export function Sidebar({
 
       {/* Core Navigation Spaces */}
       <nav className="flex-1 overflow-y-auto px-2.5 py-3 flex flex-col gap-1">
-        {currentClass && (
+        <button
+          type="button"
+          title={collapsed ? '全部功能中心' : undefined}
+          onClick={() => onSelectSpace('hub')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
+            collapsed ? 'justify-center' : ''
+          } ${
+            space === 'hub'
+              ? 'bg-[var(--bg-active)] text-[var(--accent)] font-semibold'
+              : 'text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-primary)]'
+          }`}
+        >
+          <Compass className="w-[18px] h-[18px] shrink-0" />
+          {!collapsed && (
+            <div className="flex-1 min-w-0 text-left">
+              <div className="text-[13.5px] leading-tight">全部功能中心</div>
+              <div className="text-[11px] text-[var(--ink-muted)] font-normal truncate">
+                应用总览 · 自选置顶侧栏
+              </div>
+            </div>
+          )}
+        </button>
+
+        {currentClass && visibleClassNav.length > 0 && (
           <>
+            <div className="my-1.5 border-t border-[var(--border-subtle)]" />
             {!collapsed && (
               <div className="px-2 pb-1 text-[11px] font-semibold text-[var(--ink-muted)]">
                 班级工作空间
               </div>
             )}
-            {navItems.map((item) => {
+            {visibleClassNav.map((item) => {
               const IconComp = item.icon;
               const active = space === item.id;
               return (
@@ -259,34 +310,50 @@ export function Sidebar({
           </>
         )}
 
-        <div className="my-2 border-t border-[var(--border-subtle)]" />
-        {!collapsed && (
-          <div className="px-2 pb-1 text-[11px] font-semibold text-[var(--ink-muted)]">
-            网阅联动
-          </div>
-        )}
-        <button
-          type="button"
-          title={collapsed ? '智学网 / 网阅伴侣' : undefined}
-          onClick={() => onSelectSpace('zhixue')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
-            collapsed ? 'justify-center' : ''
-          } ${
-            space === 'zhixue'
-              ? 'bg-[var(--bg-active)] text-[var(--accent)] font-semibold'
-              : 'text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-primary)]'
-          }`}
-        >
-          <Globe className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && (
-            <div className="flex-1 min-w-0 text-left">
-              <div className="text-[13.5px] leading-tight">智学网伴侣</div>
-              <div className="text-[11px] text-[var(--ink-muted)] font-normal truncate">
-                内置网页 · AI 抓图填分
+        {visibleGlobalNav.length > 0 && (
+          <>
+            <div className="my-1.5 border-t border-[var(--border-subtle)]" />
+            {!collapsed && (
+              <div className="px-2 pb-1 text-[11px] font-semibold text-[var(--ink-muted)]">
+                通用工具与网阅
               </div>
-            </div>
-          )}
-        </button>
+            )}
+            {visibleGlobalNav.map((item) => {
+              const IconComp = item.icon;
+              const active = space === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  title={collapsed ? item.label : undefined}
+                  onClick={() => onSelectSpace(item.id)}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors cursor-pointer ${
+                    collapsed ? 'justify-center' : ''
+                  } ${
+                    active
+                      ? 'bg-[var(--bg-active)] text-[var(--accent)] font-semibold'
+                      : 'text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-primary)]'
+                  }`}
+                >
+                  <IconComp className="w-[18px] h-[18px] shrink-0" />
+                  {!collapsed && (
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="text-[13.5px] leading-tight">{item.label}</div>
+                      <div className="text-[11px] text-[var(--ink-muted)] font-normal truncate">
+                        {item.hint}
+                      </div>
+                    </div>
+                  )}
+                  {!collapsed && Boolean(item.badge) && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--ink-secondary)] tabular-nums">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Bottom Utility Footer */}

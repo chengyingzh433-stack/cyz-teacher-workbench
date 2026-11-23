@@ -2,9 +2,31 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
-import { AppError, type AppPreferences, type VaultInfo } from '../shared/types';
+import {
+  AppError,
+  DEFAULT_PINNED_SPACES,
+  type AppPreferences,
+  type PinnableSpace,
+  type VaultInfo,
+} from '../shared/types';
 import { openVaultDatabase, VAULT_SCHEMA_VERSION } from './db';
 import { computePhotosUsage } from './photo-store';
+import { computeQbankUsage, getQbankDir, openQbankDatabase } from './question-bank/db';
+
+const VALID_PINNABLE = new Set<PinnableSpace>(DEFAULT_PINNED_SPACES);
+
+function sanitizePinnedSpaces(raw: unknown): PinnableSpace[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_PINNED_SPACES];
+  const seen = new Set<PinnableSpace>();
+  const out: PinnableSpace[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string' && VALID_PINNABLE.has(item as PinnableSpace) && !seen.has(item as PinnableSpace)) {
+      seen.add(item as PinnableSpace);
+      out.push(item as PinnableSpace);
+    }
+  }
+  return out;
+}
 
 interface VaultManifest {
   name: string;
@@ -14,6 +36,7 @@ interface VaultManifest {
 
 export class VaultManager {
   private db: DatabaseSync | null = null;
+  private qbankDb: DatabaseSync | null = null;
   private vaultPath = '';
   private lockPath = '';
   private prefsPath: string;
@@ -35,6 +58,7 @@ export class VaultManager {
       vaultPath: VaultManager.defaultVaultPath(),
       sidebarCollapsed: false,
       recentVaults: [],
+      pinnedSpaces: [...DEFAULT_PINNED_SPACES],
     };
     try {
       if (!fs.existsSync(this.prefsPath)) return fallback;
@@ -47,6 +71,8 @@ export class VaultManager {
         recentVaults: Array.isArray(parsed.recentVaults)
           ? parsed.recentVaults.filter((x): x is string => typeof x === 'string').slice(0, 8)
           : [],
+        pinnedSpaces:
+          parsed.pinnedSpaces !== undefined ? sanitizePinnedSpaces(parsed.pinnedSpaces) : [...DEFAULT_PINNED_SPACES],
       };
     } catch {
       return fallback;
@@ -58,7 +84,11 @@ export class VaultManager {
   }
 
   getPreferences(): AppPreferences {
-    return { ...this.prefs, recentVaults: [...this.prefs.recentVaults] };
+    return {
+      ...this.prefs,
+      recentVaults: [...this.prefs.recentVaults],
+      pinnedSpaces: [...this.prefs.pinnedSpaces],
+    };
   }
 
   updatePreferences(patch: Partial<AppPreferences>): AppPreferences {
@@ -66,6 +96,7 @@ export class VaultManager {
       ...this.prefs,
       ...(patch.themeId ? { themeId: patch.themeId } : {}),
       ...(patch.sidebarCollapsed !== undefined ? { sidebarCollapsed: patch.sidebarCollapsed } : {}),
+      ...(patch.pinnedSpaces !== undefined ? { pinnedSpaces: sanitizePinnedSpaces(patch.pinnedSpaces) } : {}),
     };
     this.savePrefs();
     return this.getPreferences();
@@ -95,6 +126,7 @@ export class VaultManager {
 
     const dbPath = path.join(target, 'workbench.sqlite');
     this.db = openVaultDatabase(dbPath);
+    this.qbankDb = openQbankDatabase(target);
     this.vaultPath = target;
 
     const recent = [target, ...this.prefs.recentVaults.filter((x) => x !== target)].slice(0, 8);
@@ -142,6 +174,11 @@ export class VaultManager {
     return this.db!;
   }
 
+  getQbankDb(): DatabaseSync {
+    if (!this.qbankDb) this.open();
+    return this.qbankDb!;
+  }
+
   getPath(): string {
     if (!this.vaultPath) this.open();
     return this.vaultPath;
@@ -163,6 +200,7 @@ export class VaultManager {
     const dbPath = path.join(dir, 'workbench.sqlite');
     const dbBytes = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
     const photos = computePhotosUsage(dir);
+    const qbank = computeQbankUsage(dir, this.qbankDb);
     return {
       path: dir,
       name: manifest.name,
@@ -171,6 +209,8 @@ export class VaultManager {
       dbBytes,
       photoCount: photos.count,
       photoBytes: photos.bytes,
+      qbankQuestionCount: qbank.questionCount,
+      qbankBytes: qbank.bytes,
     };
   }
 
@@ -187,10 +227,22 @@ export class VaultManager {
     if (fs.existsSync(photosSrc)) {
       fs.cpSync(photosSrc, path.join(target, 'photos'), { recursive: true });
     }
+    const qbankSrc = getQbankDir(src);
+    if (fs.existsSync(qbankSrc)) {
+      fs.cpSync(qbankSrc, path.join(target, 'question-bank'), { recursive: true });
+    }
     return target;
   }
 
   close() {
+    if (this.qbankDb) {
+      try {
+        this.qbankDb.close();
+      } catch {
+        // ignore
+      }
+      this.qbankDb = null;
+    }
     if (this.db) {
       try {
         this.db.close();

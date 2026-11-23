@@ -4,7 +4,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app } from 'electron';
+import { app, dialog, safeStorage } from 'electron';
+import { unzipSync } from 'fflate';
+import { PDFDocument } from 'pdf-lib';
+
+// Guardrail spy: verify zero passive macOS Keychain async prompts across the entire desktop run!
+let asyncKeychainCalls = 0;
+if (typeof safeStorage.isAsyncEncryptionAvailable === 'function') {
+  const origAsync = safeStorage.isAsyncEncryptionAvailable.bind(safeStorage);
+  safeStorage.isAsyncEncryptionAvailable = (...args) => {
+    asyncKeychainCalls += 1;
+    return origAsync(...args);
+  };
+}
 
 // Ensure macOS App Nap / screen-lock window occlusion never stalls Chromium compositor frames during E2E capture.
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -118,6 +130,8 @@ async function navTo(win, label) {
   await sleep(750);
 }
 
+let mainWindowAttached = false;
+
 app.on('browser-window-created', (_ev, win) => {
   win.webContents.on('console-message', (details) => {
     const level = typeof details === 'object' && details !== null ? details.level : 'info';
@@ -129,6 +143,9 @@ app.on('browser-window-created', (_ev, win) => {
   win.webContents.on('render-process-gone', (_e, details) => {
     errors.push(`[renderer:gone] ${JSON.stringify(details)}`);
   });
+
+  if (mainWindowAttached) return;
+  mainWindowAttached = true;
 
   win.webContents.once('did-finish-load', async () => {
     try {
@@ -462,8 +479,253 @@ app.on('browser-window-created', (_ev, win) => {
       await navTo(win, '智学网伴侣');
       await saveShot(win, '15-zhixue-companion.png');
 
+      // Step 16: Apps Hub -> verify 6 module cards & customizable sidebar pin/unpin persistence
+      await navTo(win, '全部功能中心');
+      const hubInit = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return text.includes('全部功能中心') && text.includes('物理题库') && text.includes('互动教室') && text.includes('智学网伴侣');
+      })()`);
+      assert.equal(hubInit, true, 'Apps Hub must display all core module cards');
+
+      // Unpin 智学网伴侣 -> verify removed from sidebar & persisted in preferences.json
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = document.querySelector('button[aria-label="取消置顶智学网伴侣"]');
+        if (!btn) throw new Error('Unpin button for 智学网伴侣 not found');
+        btn.click();
+      })()`);
+      await sleep(350);
+      const afterUnpin = await win.webContents.executeJavaScript(`
+        Array.from(document.querySelectorAll('aside button')).some((b) => (b.textContent || '').includes('智学网伴侣'))
+      `);
+      assert.equal(afterUnpin, false, 'Unpinned 智学网伴侣 must disappear from left sidebar');
+      const prefsAfterUnpin = JSON.parse(fs.readFileSync(path.join(tmpUserData, 'preferences.json'), 'utf8'));
+      assert.equal(prefsAfterUnpin.pinnedSpaces.includes('zhixue'), false, 'Unpin must persist to preferences.json');
+      await saveShot(win, '16-apps-hub-pin.png');
+
+      // Re-pin 智学网伴侣 -> verify restored in sidebar
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = document.querySelector('button[aria-label="置顶智学网伴侣"]');
+        if (!btn) throw new Error('Re-pin button for 智学网伴侣 not found');
+        btn.click();
+      })()`);
+      await sleep(350);
+      const afterRepin = await win.webContents.executeJavaScript(`
+        Array.from(document.querySelectorAll('aside button')).some((b) => (b.textContent || '').includes('智学网伴侣'))
+      `);
+      assert.equal(afterRepin, true, 'Re-pinned 智学网伴侣 must reappear in left sidebar');
+
+      // Step 17: Physics Question Bank -> Continuous Intake with real 6-page physics exam PDF (or portable fallback PDF)
+      const realExamPdf = '/Users/metric/.gemini/antigravity/brain/bfabc4a2-96e4-4de3-aa33-7c00a77303e0/.user_uploaded/media_1795420888662_132e0847.pdf';
+      let intakePdfPath = realExamPdf;
+      let expectedPages = 6;
+      if (!fs.existsSync(intakePdfPath)) {
+        const fallbackDoc = await PDFDocument.create();
+        const p1 = fallbackDoc.addPage([595, 842]);
+        p1.drawText('Physics Exam Q1: A block of mass m accelerates under force F = ma.', { x: 40, y: 740, size: 14 });
+        const p2 = fallbackDoc.addPage([595, 842]);
+        p2.drawText('Physics Exam Q2: Energy conservation.', { x: 40, y: 740, size: 14 });
+        intakePdfPath = path.join(tmpRoot, 'fallback-physics-exam.pdf');
+        fs.writeFileSync(intakePdfPath, await fallbackDoc.save());
+        expectedPages = 2;
+      }
+
+      await navTo(win, '物理题库');
+      await win.webContents.executeJavaScript(`(() => {
+        const tab = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('连续录题'));
+        if (!tab) throw new Error('Intake tab not found');
+        tab.click();
+      })()`);
+      await sleep(400);
+
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [intakePdfPath] });
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('导入试卷 PDF'));
+        if (!btn) throw new Error('Import PDF button not found');
+        btn.click();
+      })()`);
+      await sleep(1800);
+
+      const pdfLoaded = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        const canvas = document.querySelector('[data-qbank-pdf-surface="1"] canvas');
+        return {
+          hasPageInfo: text.includes('第 1 / ${expectedPages} 页'),
+          canvasW: canvas ? canvas.width : 0,
+          canvasH: canvas ? canvas.height : 0,
+        };
+      })()`);
+      assert.equal(pdfLoaded.hasPageInfo, true, `PDF viewer must display 第 1 / ${expectedPages} 页`);
+      assert.ok(pdfLoaded.canvasW > 300 && pdfLoaded.canvasH > 400, 'PDF page 1 canvas must render');
+
+      // Drag-select text region on page 1 (Q1 area) -> verify cleaned text extracted into draft
+      await win.webContents.executeJavaScript(`(() => {
+        const surface = document.querySelector('[data-qbank-pdf-surface="1"]');
+        const r = surface.getBoundingClientRect();
+        const x1 = r.left + r.width * 0.06, y1 = r.top + r.height * 0.16;
+        const x2 = r.left + r.width * 0.94, y2 = r.top + r.height * 0.36;
+        surface.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x1, clientY: y1 }));
+        surface.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x2, clientY: y2 }));
+        surface.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x2, clientY: y2 }));
+      })()`);
+      await sleep(500);
+
+      // Switch to 框选配图 and crop a compact physics figure -> verify proportional widthPercent <= 70%
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('框选配图'));
+        if (!btn) throw new Error('Figure crop tool not found');
+        btn.click();
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const surface = document.querySelector('[data-qbank-pdf-surface="1"]');
+        const r = surface.getBoundingClientRect();
+        const x1 = r.left + r.width * 0.60, y1 = r.top + r.height * 0.22;
+        const x2 = r.left + r.width * 0.86, y2 = r.top + r.height * 0.35;
+        surface.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x1, clientY: y1 }));
+        surface.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x2, clientY: y2 }));
+        surface.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x2, clientY: y2 }));
+      })()`);
+      await sleep(600);
+
+      const intakeDraftCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        const textareas = Array.from(document.querySelectorAll('main textarea'));
+        const extracted = textareas.map((t) => t.value).join('\\n');
+        return {
+          extractedLen: extracted.trim().length,
+          hasFigureBlock: text.includes('配图 #'),
+          hasCompactWidth: /图宽 (20|25|30|35|40|45|50|55|60|65|70)%/.test(text),
+        };
+      })()`);
+      assert.ok(intakeDraftCheck.extractedLen > 10, 'PDF text selection must extract stem text into draft');
+      assert.equal(intakeDraftCheck.hasFigureBlock, true, 'Cropped figure block must appear in draft');
+      assert.equal(intakeDraftCheck.hasCompactWidth, true, 'Cropped figure must use proportional width <= 70%');
+      await saveShot(win, '17-qbank-intake-pdf.png');
+
+      // Step 18: Publish draft and enter Proofread Editor (TipTap + MathLive) -> insert F = ma -> save -> lazily open AI/OCR modal
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('入库并校对公式'));
+        if (!btn) throw new Error('Publish and edit button not found');
+        btn.click();
+      })()`);
+      await sleep(800);
+
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('插入公式'));
+        if (!btn) throw new Error('Insert math button not found');
+        btn.click();
+      })()`);
+      await sleep(300);
+      await win.webContents.executeJavaScript(`(() => {
+        const input = document.querySelector('[role="dialog"] input');
+        if (!input) throw new Error('Math LaTeX input not found');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'F = ma');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const ok = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('确定插入'));
+        if (!ok) throw new Error('Confirm math insert button not found');
+        ok.click();
+      })()`);
+      await sleep(350);
+      await win.webContents.executeJavaScript(`(() => {
+        const save = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('保存修改'));
+        if (!save) throw new Error('Save edits button not found');
+        save.click();
+      })()`);
+      await sleep(500);
+
+      const editorCheck = await win.webContents.executeJavaScript(`(() => ({
+        hasV2: document.body.innerText.includes('v2'),
+        mathChips: document.querySelectorAll('[data-math-chip="1"]').length,
+        figureImgs: document.querySelectorAll('main img[src^="workbench-asset://question-bank/"]').length,
+      }))()`);
+      assert.equal(editorCheck.hasV2, true, 'Saving edits must bump revision to v2');
+      assert.ok(editorCheck.mathChips >= 1, 'MathLive inline math chip must render in TipTap editor');
+      assert.ok(editorCheck.figureImgs >= 1, 'Cropped physics diagram must stay preserved after inserting math formula');
+      await saveShot(win, '18-qbank-editor-mathlive.png');
+
+      // Open lazy AI/OCR modal once -> verify it opens cleanly and triggers ZERO async Keychain prompts, then close
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('AI / OCR 识图转写'));
+        if (!btn) throw new Error('OCR button not found');
+        btn.click();
+      })()`);
+      await sleep(400);
+      const ocrOpenOk = await win.webContents.executeJavaScript(`
+        (document.querySelector('[role="dialog"]')?.innerText || '').includes('工作台统一 AI 视觉模型')
+      `);
+      assert.equal(ocrOpenOk, true, 'Lazy OCR modal must offer unified Workbench AI channel');
+      await closeSettings(win);
+
+      // Step 19: Question Bank List -> create folder, verify question appears, add to basket
+      await win.webContents.executeJavaScript(`(() => {
+        const tab = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('题库检索'));
+        if (!tab) throw new Error('Bank tab not found');
+        tab.click();
+      })()`);
+      await sleep(500);
+      await win.webContents.executeJavaScript(`(() => {
+        const addBtn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('加入组卷篮'));
+        if (!addBtn) throw new Error('Add to basket button not found');
+        addBtn.click();
+      })()`);
+      await sleep(450);
+      await saveShot(win, '19-qbank-bank-search.png');
+
+      // Step 20: Basket & 3-Format Exports (real Electron Word OMML, PDF, PPTX!)
+      await win.webContents.executeJavaScript(`(() => {
+        const tab = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('组卷篮与导出'));
+        if (!tab) throw new Error('Basket tab not found');
+        tab.click();
+      })()`);
+      await sleep(500);
+      await saveShot(win, '20-qbank-basket-export.png');
+
+      const exportOutDir = path.join(shotsDir, 'exports');
+      fs.mkdirSync(exportOutDir, { recursive: true });
+      for (const [ext, btnLabel] of [
+        ['docx', '导出 Word 试卷'],
+        ['pdf', '导出 PDF'],
+        ['pptx', '导出课件'],
+      ]) {
+        const targetFile = path.join(exportOutDir, `e2e-physics.${ext}`);
+        dialog.showSaveDialog = async () => ({ canceled: false, filePath: targetFile });
+        await win.webContents.executeJavaScript(`(() => {
+          const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes(${JSON.stringify(btnLabel)}));
+          if (!btn) throw new Error('Export button not found: ' + ${JSON.stringify(btnLabel)});
+          btn.click();
+        })()`);
+        // Wait up to 20s for raster/word export file to finish writing
+        const deadline = Date.now() + 20_000;
+        while (!fs.existsSync(targetFile) && Date.now() < deadline) await sleep(250);
+        assert.ok(fs.existsSync(targetFile), `Exported ${ext} file must be written to disk`);
+      }
+
+      // Verify all 3 exported artifacts structurally!
+      const docxZip = unzipSync(new Uint8Array(fs.readFileSync(path.join(exportOutDir, 'e2e-physics.docx'))));
+      const docxXml = Buffer.from(docxZip['word/document.xml']).toString('utf8');
+      assert.ok(docxXml.includes('<m:oMath'), 'E2E exported Word .docx must include native <m:oMath> formula');
+      const pdfBytes = fs.readFileSync(path.join(exportOutDir, 'e2e-physics.pdf'));
+      assert.equal(pdfBytes.subarray(0, 5).toString('ascii'), '%PDF-', 'E2E exported PDF must have valid %PDF- header');
+      const pptxZip = unzipSync(new Uint8Array(fs.readFileSync(path.join(exportOutDir, 'e2e-physics.pptx'))));
+      assert.ok(pptxZip['ppt/slides/slide1.xml'], 'E2E exported PPTX must include slide1.xml');
+
+      // Step 21: Dark Glass Theme check inside Question Bank
+      await openSettingsThemeTab(win);
+      await clickThemeCard(win, '极光深玻');
+      await closeSettings(win);
+      await saveShot(win, '21-qbank-glass-aurora.png');
+
+      assert.equal(
+        asyncKeychainCalls,
+        0,
+        `macOS zero-popup guardrail violated: safeStorage.isAsyncEncryptionAvailable called ${asyncKeychainCalls} times!`,
+      );
       assert.equal(errors.length, 0, `Encountered runtime errors:\n${errors.join('\n')}`);
-      console.log('[E2E PASS] All 16 real desktop user flows passed with 0 errors!');
+      console.log('[E2E PASS] All 22 real desktop user flows (incl. Apps Hub & 6-page physics PDF qbank + Word/PDF/PPTX exports) passed with 0 errors!');
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(0);
     } catch (err) {

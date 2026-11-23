@@ -14,6 +14,7 @@ import * as examsRepo from './repositories/exams';
 import * as gradingRepo from './repositories/grading';
 import * as homeroomRepo from './repositories/homeroom';
 import * as trashRepo from './repositories/trash';
+import { registerQbankIpcHandlers } from './question-bank/ipc';
 
 function wrap<T extends unknown[], R>(fn: (...args: T) => R | Promise<R>) {
   return async (_event: Electron.IpcMainInvokeEvent, ...args: T): Promise<R> => {
@@ -304,4 +305,7 @@ export function registerIpcHandlers(deps: {
   ipcMain.handle('zhixue:reload', wrap(() => zhixue.reload()));
   ipcMain.handle('zhixue:captureRegion', wrap((rect) => zhixue.captureRegion(rect)));
   ipcMain.handle('zhixue:fillScore', wrap((score, hint) => zhixue.fillScore(score, hint)));
+
+  // Physics Question Bank (isolated <vault>/question-bank/ sub-DB)
+  registerQbankIpcHandlers({ vault, keychain, aiProxy, getWindow });
 }

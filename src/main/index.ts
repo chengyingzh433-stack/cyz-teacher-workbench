@@ -9,6 +9,7 @@ import { AiKeychainStore } from './keychain';
 import { MainAiProxy } from './ai-proxy';
 import { ZhixueCompanionManager } from './zhixue-view';
 import { resolveSafePhotoPath } from './photo-store';
+import { resolveSafeQbankPath } from './question-bank/assets';
 import { registerIpcHandlers } from './ipc-handlers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -185,6 +186,12 @@ if (!gotLock) {
           const relPath = decodeURIComponent(u.pathname).replace(/^\/+/, '');
           const abs = resolveSafePhotoPath(vault.getPath(), relPath);
           if (!fs.existsSync(abs)) return new Response('Photo not found', { status: 404 });
+          return net.fetch(pathToFileURL(abs).toString());
+        }
+        if (u.hostname === 'question-bank' && vault) {
+          const relPath = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+          const abs = resolveSafeQbankPath(vault.getPath(), relPath);
+          if (!fs.existsSync(abs)) return new Response('Question bank asset not found', { status: 404 });
           return net.fetch(pathToFileURL(abs).toString());
         }
         return new Response('Forbidden', { status: 403 });

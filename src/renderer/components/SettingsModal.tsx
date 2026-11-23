@@ -63,6 +63,8 @@ export function SettingsModal({
   const [oUrl, setOUrl] = useState('');
   const [oModel, setOModel] = useState('');
   const [oKey, setOKey] = useState('');
+  const [d2xEnabled, setD2xEnabled] = useState(false);
+  const [d2xKey, setD2xKey] = useState('');
 
   const [pulledModels, setPulledModels] = useState<RemoteModelInfo[]>([]);
   const [pulling, setPulling] = useState(false);
@@ -92,6 +94,8 @@ export function SettingsModal({
       setOUrl(cfg.ocr.url);
       setOModel(cfg.ocr.model);
       setOKey('');
+      setD2xEnabled(Boolean(cfg.doc2x?.enabled));
+      setD2xKey('');
     });
   }, [open]);
 
@@ -103,12 +107,14 @@ export function SettingsModal({
         vision: { mode: vMode, url: vUrl, model: vModel, key: vKey || undefined },
         judge: { mode: jMode, url: jUrl, model: jModel, key: jKey || undefined },
         ocr: { mode: oMode, url: oUrl, model: oModel, key: oKey || undefined },
+        doc2x: { enabled: d2xEnabled, key: d2xKey || undefined },
       });
       setAiView(updated);
       setGKey('');
       setVKey('');
       setJKey('');
       setOKey('');
+      setD2xKey('');
       onNotify('AI 配置已通过系统钥匙串安全加密保存！重启软件不再丢失');
     } catch (e) {
       onNotify((e as Error).message, 'err');
@@ -472,6 +478,35 @@ export function SettingsModal({
               </div>
             </div>
 
+            <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-medium">物理题库增强公式 OCR：Doc2X（可选）</div>
+                  <div className="text-[11px] text-[var(--ink-muted)]">
+                    题库默认直接复用上方视觉模型转写公式；如需 Doc2X 专业版面解析，可在此按需开启（绝不自动上传）
+                  </div>
+                </div>
+                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={d2xEnabled}
+                    onChange={(e) => setD2xEnabled(e.target.checked)}
+                    className="accent-[var(--accent)]"
+                  />
+                  启用 Doc2X
+                </label>
+              </div>
+              {d2xEnabled && (
+                <Input
+                  type="password"
+                  value={d2xKey}
+                  onChange={(e) => setD2xKey(e.target.value)}
+                  placeholder={aiView?.doc2x?.hasKey ? '••••••••（已加密记住 Doc2X Key，留空保持不变）' : 'sk-...（Doc2X API Key）'}
+                  className="h-8 text-xs"
+                />
+              )}
+            </div>
+
             <div className="flex justify-end pt-1">
               <Button variant="primary" disabled={saving} onClick={() => void saveAiConfig()}>
                 {saving ? '加密保存中…' : '保存并加密记住配置'}
@@ -492,18 +527,24 @@ export function SettingsModal({
               </div>
               <Badge tone="ok">SQLite 单文件直存</Badge>
             </div>
-            <div className="grid grid-cols-3 gap-2.5 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
               <div className="p-2.5 rounded-xl bg-[var(--bg-muted)]">
-                <div className="text-[11px] text-[var(--ink-muted)]">数据库体积</div>
+                <div className="text-[11px] text-[var(--ink-muted)]">主库体积</div>
                 <div className="text-sm font-bold tabular-nums mt-0.5">{formatBytes(vaultInfo.dbBytes)}</div>
               </div>
               <div className="p-2.5 rounded-xl bg-[var(--bg-muted)]">
-                <div className="text-[11px] text-[var(--ink-muted)]">答卷照片数</div>
-                <div className="text-sm font-bold tabular-nums mt-0.5">{vaultInfo.photoCount} 张</div>
+                <div className="text-[11px] text-[var(--ink-muted)]">答卷照片</div>
+                <div className="text-sm font-bold tabular-nums mt-0.5">
+                  {vaultInfo.photoCount} 张 · {formatBytes(vaultInfo.photoBytes)}
+                </div>
               </div>
               <div className="p-2.5 rounded-xl bg-[var(--bg-muted)]">
-                <div className="text-[11px] text-[var(--ink-muted)]">照片占用空间</div>
-                <div className="text-sm font-bold tabular-nums mt-0.5">{formatBytes(vaultInfo.photoBytes)}</div>
+                <div className="text-[11px] text-[var(--ink-muted)]">物理题库</div>
+                <div className="text-sm font-bold tabular-nums mt-0.5">{vaultInfo.qbankQuestionCount} 道题</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-[var(--bg-muted)]">
+                <div className="text-[11px] text-[var(--ink-muted)]">题库占用</div>
+                <div className="text-sm font-bold tabular-nums mt-0.5">{formatBytes(vaultInfo.qbankBytes)}</div>
               </div>
             </div>
             <div className="flex items-center flex-wrap gap-2 pt-1">
@@ -535,7 +576,7 @@ export function SettingsModal({
             </div>
           </Card>
           <p className="text-xs text-[var(--ink-muted)] leading-relaxed">
-            提示：本资料库由 <code>workbench.sqlite</code> 与 <code>photos/</code> 组成，可直接拷入 U 盘或放进 iCloud / 坚果云同步。API 密钥独立加密保存在本机系统钥匙串中，同步资料库绝不会泄露密钥。
+            提示：本资料库由 <code>workbench.sqlite</code>、<code>photos/</code> 与 <code>question-bank/</code>（物理题库独立子库与素材）组成，可直接拷入 U 盘或放进 iCloud / 坚果云同步。API 密钥独立加密保存在本机系统钥匙串中，同步资料库绝不会泄露密钥。
           </p>
         </div>
       )}

@@ -43,6 +43,31 @@ import type {
 } from './types';
 import type { TableBook, TableMapping } from './gradebook/table';
 import type { BreakdownResult, GradingResult, Stage1ScanResult } from './ai-engine';
+import type {
+  ContentRevisionDTO,
+  QuestionAssetDTO,
+  WordExportOptions,
+} from './qbank/editable';
+import type {
+  BankFilterInput,
+  BankQuestionDTO,
+  EditableQuestionDTO,
+  IntakeBlock,
+  IntakeDraftDTO,
+  IntakeSourceDTO,
+  IntakeSourceKind,
+  IntakeWorkspaceDTO,
+  KnowledgePointDTO,
+  PaperSetDetailDTO,
+  PaperSetDTO,
+  QbankOcrJobDTO,
+  QbankOcrPart,
+  QbankOcrProvider,
+  QbankTaxonomyDTO,
+  QuestionFolderDTO,
+  QuestionMetadataInput,
+  SaveQuestionEditsInput,
+} from './qbank/types';
 
 export interface ImportedStudentRow {
   name: string;
@@ -378,5 +403,100 @@ export interface WorkbenchApi {
     }>;
     fillScore: (scoreText: string, selectorHint?: string) => Promise<{ ok: boolean; detail: string }>;
     onStateChange: (cb: (state: ZhixueState) => void) => () => void;
+  };
+
+  // Physics Question Bank (物理题库)
+  qbank: {
+    taxonomy: {
+      get: () => Promise<QbankTaxonomyDTO>;
+      addKnowledgePoint: (name: string) => Promise<KnowledgePointDTO>;
+    };
+    intake: {
+      listSources: () => Promise<IntakeSourceDTO[]>;
+      pickAndImport: () => Promise<IntakeWorkspaceDTO | null>;
+      importBytes: (input: {
+        name: string;
+        kind: IntakeSourceKind;
+        bytes: number[];
+        pageCount?: number;
+      }) => Promise<IntakeWorkspaceDTO>;
+      getWorkspace: (sourceId: string) => Promise<IntakeWorkspaceDTO>;
+      deleteSource: (sourceId: string) => Promise<void>;
+      createDraft: (
+        sourceId: string,
+        inheritMetadata?: QuestionMetadataInput,
+      ) => Promise<IntakeDraftDTO>;
+      updateDraft: (
+        draftId: string,
+        patch: {
+          questionBlocks?: IntakeBlock[];
+          answerBlocks?: IntakeBlock[];
+          metadata?: QuestionMetadataInput;
+          originalRelPath?: string | null;
+        },
+      ) => Promise<IntakeDraftDTO>;
+      deleteDraft: (draftId: string) => Promise<void>;
+      saveCroppedImage: (
+        sourceId: string,
+        input: { bytes: number[]; name?: string; cropWidthRatio?: number | null },
+      ) => Promise<{ relPath: string; widthPx: number; heightPx: number; widthPercent: number }>;
+      publishDraft: (
+        draftId: string,
+        originalBytes?: number[] | null,
+      ) => Promise<{ questionId: number; draft: IntakeDraftDTO; nextDraft: IntakeDraftDTO }>;
+    };
+    content: {
+      getEditable: (questionId: number) => Promise<EditableQuestionDTO>;
+      saveEdits: (questionId: number, input: SaveQuestionEditsInput) => Promise<EditableQuestionDTO>;
+      listRevisions: (questionId: number) => Promise<ContentRevisionDTO[]>;
+      restoreRevision: (questionId: number, revision: number) => Promise<EditableQuestionDTO>;
+      saveAsset: (questionId: number, bytes: number[], name: string) => Promise<QuestionAssetDTO>;
+    };
+    bank: {
+      search: (filter?: BankFilterInput) => Promise<BankQuestionDTO[]>;
+      createManual: (input: {
+        questionText: string;
+        answerText?: string;
+        metadata?: QuestionMetadataInput;
+      }) => Promise<BankQuestionDTO>;
+      deleteQuestion: (questionId: number) => Promise<void>;
+    };
+    folders: {
+      list: () => Promise<QuestionFolderDTO[]>;
+      create: (name: string) => Promise<QuestionFolderDTO>;
+      rename: (id: number, name: string) => Promise<QuestionFolderDTO>;
+      delete: (id: number) => Promise<void>;
+      setMembership: (folderId: number, questionId: number, included: boolean) => Promise<void>;
+    };
+    basket: {
+      listSets: () => Promise<PaperSetDTO[]>;
+      createSet: (title: string) => Promise<PaperSetDTO>;
+      deleteSet: (setId: number) => Promise<void>;
+      getSetDetail: (setId: number) => Promise<PaperSetDetailDTO>;
+      add: (setId: number, questionId: number) => Promise<PaperSetDetailDTO>;
+      remove: (setId: number, questionId: number) => Promise<PaperSetDetailDTO>;
+      clear: (setId: number) => Promise<PaperSetDetailDTO>;
+      reorder: (setId: number, itemIds: number[]) => Promise<PaperSetDetailDTO>;
+      updateItem: (
+        itemId: number,
+        patch: { displayNumber?: string; groupHeader?: string },
+      ) => Promise<PaperSetDetailDTO>;
+      saveOptions: (setId: number, options: WordExportOptions) => Promise<WordExportOptions>;
+    };
+    export: {
+      docx: (setId: number, options: Partial<WordExportOptions>) => Promise<{ path: string } | null>;
+      pdf: (setId: number, options: Partial<WordExportOptions>) => Promise<{ path: string } | null>;
+      pptx: (setId: number, options: Partial<WordExportOptions>) => Promise<{ path: string } | null>;
+    };
+    ocr: {
+      listJobs: (questionId: number, part?: QbankOcrPart) => Promise<QbankOcrJobDTO[]>;
+      run: (params: {
+        questionId: number;
+        part: QbankOcrPart;
+        provider: QbankOcrProvider;
+        imageBytes?: number[] | null;
+      }) => Promise<QbankOcrJobDTO>;
+      adopt: (jobId: string) => Promise<EditableQuestionDTO>;
+    };
   };
 }

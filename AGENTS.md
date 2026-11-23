@@ -6,7 +6,9 @@
 
 | 规则 | 由什么拦住 |
 | --- | --- |
-| 交差前跑通类型检查、单元测试与真实桌面端 E2E 流程并附截图 | `npm run typecheck && npm test && npm run test:e2e`（截图输出至 `test-results/prove-it/`） |
+| 交差前跑通类型检查、单元测试与真实桌面端 E2E 流程并附截图 | `npm run typecheck && npm test && npm run test:e2e`（22 场景，截图输出至 `test-results/prove-it/`） |
+| 物理题库及钥匙串被动查询严禁调用 `safeStorage.isAsyncEncryptionAvailable()`，OCR 面板必须懒挂载 | `tests/qbank-storage.test.ts` + `tests/e2e-electron.mjs` 零异步钥匙串调用断言 |
+| 物理题库不引入 C++ 原生依赖，仅使用 `node:sqlite`，且 `mathml2omml` 配置 `asarUnpack` | `electron-builder.yml` + `package.json`（`pack:win` 固定 `--win zip --x64`） |
 | 新增/修改主题时，主进程与渲染进程共享单一清单且 `tokens.css` 具备对应样式块 | 单一数据源 `src/shared/theme-meta.ts` + `tests/themes.test.ts` |
 | SQLite 嵌套事务不得触发 `cannot start a transaction within a transaction` | `src/main/db.ts` 可重入 `SAVEPOINT` 事务 + `tests/vault-sqlite.test.ts` |
 | `workbench-asset://` 资源（6 张 WebP 精灵与本地答卷照片）必须可被渲染进程 `fetch` | `src/renderer/index.html` CSP `connect-src` + `tests/e2e-electron.mjs` HTTP 200 校验 |

@@ -21,6 +21,7 @@ interface StoredAiConfig {
   vision: { mode: 'inherit' | 'custom'; url: string; model: string; secret: StoredSecret };
   judge: { mode: 'inherit' | 'custom'; url: string; model: string; secret: StoredSecret };
   ocr: { mode: 'off' | 'vision-model' | 'http-ocr'; url: string; model: string; secret: StoredSecret };
+  doc2x?: { enabled: boolean; secret: StoredSecret };
 }
 
 export function isLocalUrl(urlStr: string): boolean {
@@ -88,6 +89,7 @@ export class AiKeychainStore {
       vision: { mode: 'inherit', url: '', model: '', secret: {} },
       judge: { mode: 'inherit', url: '', model: '', secret: {} },
       ocr: { mode: 'off', url: '', model: '', secret: {} },
+      doc2x: { enabled: false, secret: {} },
     };
   }
 
@@ -101,6 +103,7 @@ export class AiKeychainStore {
         vision: { ...def.vision, ...parsed.vision },
         judge: { ...def.judge, ...parsed.judge },
         ocr: { ...def.ocr, ...parsed.ocr },
+        doc2x: { ...def.doc2x!, ...parsed.doc2x },
       };
     } catch {
       return def;
@@ -201,6 +204,15 @@ export class AiKeychainStore {
               ? `独立 OCR 模型（${o.model || '未填'}）`
               : `本机/HTTP OCR（${ocrHost}）`,
       },
+      doc2x: (() => {
+        const d = this.data.doc2x || { enabled: false, secret: {} };
+        const hasKey = Boolean(this.decryptKey(d.secret));
+        return {
+          enabled: Boolean(d.enabled),
+          hasKey,
+          ready: Boolean(d.enabled && hasKey),
+        };
+      })(),
     };
   }
 
@@ -256,6 +268,12 @@ export class AiKeychainStore {
       }
     }
 
+    if (input.doc2x) {
+      const prev = this.data.doc2x || { enabled: false, secret: {} };
+      const secret = input.doc2x.key?.trim() ? this.encryptKey(input.doc2x.key) : prev.secret;
+      this.data.doc2x = { enabled: Boolean(input.doc2x.enabled), secret };
+    }
+
     this.saveFile();
     return this.getView();
   }
@@ -265,6 +283,7 @@ export class AiKeychainStore {
     this.data.vision.secret = {};
     this.data.judge.secret = {};
     this.data.ocr.secret = {};
+    if (this.data.doc2x) this.data.doc2x.secret = {};
     this.saveFile();
     return this.getView();
   }
@@ -297,6 +316,11 @@ export class AiKeychainStore {
       model: this.data.ocr.model,
       key: this.decryptKey(this.data.ocr.secret),
     };
+  }
+
+  resolveDoc2x(): { enabled: boolean; key: string } {
+    const d = this.data.doc2x || { enabled: false, secret: {} };
+    return { enabled: Boolean(d.enabled), key: this.decryptKey(d.secret) };
   }
 
   resolveFallbackKey(role: 'general' | 'vision' | 'judge' | 'ocr', targetUrl: string): string {

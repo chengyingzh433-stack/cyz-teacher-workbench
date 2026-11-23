@@ -33,6 +33,17 @@ export type ScoreStatus = 'score' | 'missing' | 'absent' | 'exempt';
 export type ExamColumnSource = 'import' | 'grading' | 'manual';
 export type ScoreSeatingStrategy = 'snake' | 'pair-help' | 'high-front' | 'group-balanced';
 
+export type NavSpace = 'hub' | 'classroom' | 'roster' | 'exams' | 'homeroom' | 'qbank' | 'zhixue';
+export type PinnableSpace = Exclude<NavSpace, 'hub'>;
+export const DEFAULT_PINNED_SPACES: PinnableSpace[] = [
+  'classroom',
+  'roster',
+  'exams',
+  'homeroom',
+  'qbank',
+  'zhixue',
+];
+
 export interface TeacherProfile {
   name: string;
   gender: Gender;
@@ -47,6 +58,8 @@ export interface VaultInfo {
   dbBytes: number;
   photoCount: number;
   photoBytes: number;
+  qbankQuestionCount: number;
+  qbankBytes: number;
 }
 
 export interface AppPreferences {
@@ -54,6 +67,7 @@ export interface AppPreferences {
   vaultPath: string;
   sidebarCollapsed: boolean;
   recentVaults: string[];
+  pinnedSpaces: PinnableSpace[];
 }
 
 export interface ClassRecord {
@@ -361,6 +375,10 @@ export interface AiConfigInput {
   vision?: AiRoleConfigInput;
   judge?: AiRoleConfigInput;
   ocr?: AiOcrConfigInput;
+  doc2x?: {
+    enabled: boolean;
+    key?: string;
+  };
 }
 
 export interface AiRoleConfigView {
@@ -390,6 +408,11 @@ export interface AiConfigView {
     hasKey: boolean;
     ready: boolean;
     effectiveLabel: string;
+  };
+  doc2x: {
+    enabled: boolean;
+    hasKey: boolean;
+    ready: boolean;
   };
 }
 

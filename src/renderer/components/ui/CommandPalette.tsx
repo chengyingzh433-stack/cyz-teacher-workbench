@@ -3,8 +3,10 @@ import { Command } from 'cmdk';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   BarChart3,
+  BookOpenCheck,
   BookOpenText,
   ClipboardList,
+  Compass,
   Globe,
   LayoutGrid,
   MessageSquareHeart,
@@ -16,8 +18,7 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import type { ClassRecord, ExamSummary, HomeroomMemo, StudentMember } from '../../../shared/types';
-import type { NavSpace } from '../../App';
+import type { ClassRecord, ExamSummary, HomeroomMemo, NavSpace, StudentMember } from '../../../shared/types';
 import type { HomeroomSubTab } from '../../features/homeroom/HomeroomWorkspace';
 import { listThemes } from '../../themes';
 
@@ -166,6 +167,12 @@ export function CommandPalette({
               )}
 
               <Command.Group heading="工作空间与系统">
+                <Command.Item value="全部功能中心 应用 侧栏 置顶 hub apps" onSelect={() => run(() => onSelectSpace('hub'))}>
+                  <Compass className="w-4 h-4" /> 前往「全部功能中心（自选置顶侧栏）」
+                </Command.Item>
+                <Command.Item value="物理题库 录题 校对 组卷 导出 word pdf pptx qbank" onSelect={() => run(() => onSelectSpace('qbank'))}>
+                  <BookOpenCheck className="w-4 h-4" /> 前往「物理题库（录题 · 校对 · 组卷）」
+                </Command.Item>
                 <Command.Item value="互动教室 排座 点检 classroom" onSelect={() => run(() => onSelectSpace('classroom'))}>
                   <LayoutGrid className="w-4 h-4" /> 前往「互动教室与排座」
                 </Command.Item>

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, Edit2, RotateCcw, Trash2 } from 'lucide-react';
-import type {
-  ClassRecord,
-  ExamSummary,
-  HomeroomDashboardSummary,
-  HomeroomMemo,
-  StudentMember,
-  TeacherProfile,
-  VaultInfo,
+import {
+  DEFAULT_PINNED_SPACES,
+  type ClassRecord,
+  type ExamSummary,
+  type HomeroomDashboardSummary,
+  type HomeroomMemo,
+  type NavSpace,
+  type PinnableSpace,
+  type StudentMember,
+  type TeacherProfile,
+  type VaultInfo,
 } from '../shared/types';
 import { localTodayStr } from '../shared/homeroom-materials';
 import { applyThemeToDocument, getQuickToggleThemeId } from './themes';
@@ -21,6 +24,8 @@ import {
   type HomeroomSubTab,
 } from './features/homeroom/HomeroomWorkspace';
 import { ZhixueCompanion } from './features/zhixue/ZhixueCompanion';
+import { AppsHubWorkspace } from './features/hub/AppsHubWorkspace';
+import { QuestionBankWorkspace } from './features/question-bank/QuestionBankWorkspace';
 import { Sidebar } from './components/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { TrashModal } from './components/TrashModal';
@@ -29,7 +34,7 @@ import { ClassAndTeacherModals } from './components/ClassAndTeacherModals';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { Badge, Button, ConfirmDialog } from './components/ui/primitives';
 
-export type NavSpace = 'classroom' | 'roster' | 'exams' | 'homeroom' | 'zhixue';
+export type { NavSpace };
 
 export function App() {
   const isMac = window.workbenchApi.platform === 'darwin';
@@ -38,6 +43,7 @@ export function App() {
   const [vaultInfo, setVaultInfo] = useState<VaultInfo | null>(null);
   const [themeId, setThemeId] = useState('studio-light');
   const [collapsed, setCollapsed] = useState(false);
+  const [pinnedSpaces, setPinnedSpaces] = useState<PinnableSpace[]>(DEFAULT_PINNED_SPACES);
   const [aiReady, setAiReady] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
 
@@ -97,6 +103,7 @@ export function App() {
     setThemeId(prefs.themeId);
     applyThemeToDocument(prefs.themeId);
     setCollapsed(prefs.sidebarCollapsed);
+    setPinnedSpaces(prefs.pinnedSpaces ?? DEFAULT_PINNED_SPACES);
     setVaultInfo(vInfo);
     setTeacher(tProf);
     setClasses(clsList);
@@ -175,6 +182,23 @@ export function App() {
     await window.workbenchApi.vault.updatePreferences({ sidebarCollapsed: next });
   }
 
+  async function handleTogglePinSpace(target: PinnableSpace) {
+    const exists = pinnedSpaces.includes(target);
+    const next = exists
+      ? pinnedSpaces.filter((s) => s !== target)
+      : DEFAULT_PINNED_SPACES.filter((s) => pinnedSpaces.includes(s) || s === target);
+    setPinnedSpaces(next);
+    await window.workbenchApi.vault.updatePreferences({ pinnedSpaces: next });
+    notify(exists ? '已移出左侧边栏，随时可在全部功能中心找回' : '已置顶到左侧边栏');
+  }
+
+  async function handleResetPinnedSpaces() {
+    const next = [...DEFAULT_PINNED_SPACES];
+    setPinnedSpaces(next);
+    await window.workbenchApi.vault.updatePreferences({ pinnedSpaces: next });
+    notify('已恢复默认左侧边栏置顶项');
+  }
+
   const anyOverlayOpen =
     cmdOpen ||
     settingsOpen ||
@@ -203,6 +227,7 @@ export function App() {
         classes={classes}
         currentClass={currentClass}
         space={space}
+        pinnedSpaces={pinnedSpaces}
         themeId={themeId}
         aiReady={aiReady}
         trashCount={trashCount}
@@ -238,7 +263,17 @@ export function App() {
           }`}
         >
           <div className="app-no-drag flex items-center gap-2.5 min-w-0">
-            {space === 'zhixue' ? (
+            {space === 'hub' ? (
+              <>
+                <h1 className="text-[16px] font-bold truncate">全部功能中心</h1>
+                <Badge tone="accent">工作台门户</Badge>
+              </>
+            ) : space === 'qbank' ? (
+              <>
+                <h1 className="text-[16px] font-bold truncate">物理题库</h1>
+                <Badge tone="accent">独立子库 · 跨班级通用</Badge>
+              </>
+            ) : space === 'zhixue' ? (
               <>
                 <h1 className="text-[16px] font-bold truncate">智学网 / 网阅伴侣</h1>
                 <Badge tone="accent">原生内嵌视口</Badge>
@@ -256,7 +291,7 @@ export function App() {
             )}
           </div>
 
-          {currentClass && space !== 'zhixue' && (
+          {currentClass && space !== 'zhixue' && space !== 'hub' && space !== 'qbank' && (
             <div className="app-no-drag flex items-center gap-1.5">
               {currentClass.status === 'archived' ? (
                 <Button
@@ -302,7 +337,28 @@ export function App() {
 
         {/* Main View Canvas */}
         <div className="flex-1 min-h-0 p-4 overflow-hidden">
-          {space === 'zhixue' ? (
+          {space === 'hub' ? (
+            <AppsHubWorkspace
+              currentClass={currentClass}
+              pinnedSpaces={pinnedSpaces}
+              vaultInfo={vaultInfo}
+              onSelectSpace={setSpace}
+              onTogglePin={(id) => void handleTogglePinSpace(id)}
+              onResetPins={() => void handleResetPinnedSpaces()}
+            />
+          ) : space === 'qbank' ? (
+            <QuestionBankWorkspace
+              onVaultStatsChanged={async () => {
+                const vInfo = await window.workbenchApi.vault.getInfo();
+                setVaultInfo(vInfo);
+              }}
+              onOpenAiSettings={() => {
+                setSettingsTab('ai');
+                setSettingsOpen(true);
+              }}
+              onNotify={notify}
+            />
+          ) : space === 'zhixue' ? (
             <ZhixueCompanion
               exams={exams}
               overlayBlocked={anyOverlayOpen}

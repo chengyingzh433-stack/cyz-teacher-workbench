@@ -157,6 +157,72 @@ const api: WorkbenchApi = {
       return () => ipcRenderer.removeListener('zhixue:state', listener);
     },
   },
+
+  qbank: {
+    taxonomy: {
+      get: () => ipcRenderer.invoke('qbank:taxonomy:get'),
+      addKnowledgePoint: (name) => ipcRenderer.invoke('qbank:taxonomy:addKp', name),
+    },
+    intake: {
+      listSources: () => ipcRenderer.invoke('qbank:intake:listSources'),
+      pickAndImport: () => ipcRenderer.invoke('qbank:intake:pickAndImport'),
+      importBytes: (input) => ipcRenderer.invoke('qbank:intake:importBytes', input),
+      getWorkspace: (sourceId) => ipcRenderer.invoke('qbank:intake:getWorkspace', sourceId),
+      deleteSource: (sourceId) => ipcRenderer.invoke('qbank:intake:deleteSource', sourceId),
+      createDraft: (sourceId, inheritMetadata) =>
+        ipcRenderer.invoke('qbank:intake:createDraft', sourceId, inheritMetadata),
+      updateDraft: (draftId, patch) => ipcRenderer.invoke('qbank:intake:updateDraft', draftId, patch),
+      deleteDraft: (draftId) => ipcRenderer.invoke('qbank:intake:deleteDraft', draftId),
+      saveCroppedImage: (sourceId, input) =>
+        ipcRenderer.invoke('qbank:intake:saveCroppedImage', sourceId, input),
+      publishDraft: (draftId, originalBytes) =>
+        ipcRenderer.invoke('qbank:intake:publishDraft', draftId, originalBytes),
+    },
+    content: {
+      getEditable: (questionId) => ipcRenderer.invoke('qbank:content:getEditable', questionId),
+      saveEdits: (questionId, input) => ipcRenderer.invoke('qbank:content:saveEdits', questionId, input),
+      listRevisions: (questionId) => ipcRenderer.invoke('qbank:content:listRevisions', questionId),
+      restoreRevision: (questionId, revision) =>
+        ipcRenderer.invoke('qbank:content:restoreRevision', questionId, revision),
+      saveAsset: (questionId, bytes, name) =>
+        ipcRenderer.invoke('qbank:content:saveAsset', questionId, bytes, name),
+    },
+    bank: {
+      search: (filter) => ipcRenderer.invoke('qbank:bank:search', filter),
+      createManual: (input) => ipcRenderer.invoke('qbank:bank:createManual', input),
+      deleteQuestion: (questionId) => ipcRenderer.invoke('qbank:bank:deleteQuestion', questionId),
+    },
+    folders: {
+      list: () => ipcRenderer.invoke('qbank:folders:list'),
+      create: (name) => ipcRenderer.invoke('qbank:folders:create', name),
+      rename: (id, name) => ipcRenderer.invoke('qbank:folders:rename', id, name),
+      delete: (id) => ipcRenderer.invoke('qbank:folders:delete', id),
+      setMembership: (folderId, questionId, included) =>
+        ipcRenderer.invoke('qbank:folders:setMembership', folderId, questionId, included),
+    },
+    basket: {
+      listSets: () => ipcRenderer.invoke('qbank:basket:listSets'),
+      createSet: (title) => ipcRenderer.invoke('qbank:basket:createSet', title),
+      deleteSet: (setId) => ipcRenderer.invoke('qbank:basket:deleteSet', setId),
+      getSetDetail: (setId) => ipcRenderer.invoke('qbank:basket:getSetDetail', setId),
+      add: (setId, questionId) => ipcRenderer.invoke('qbank:basket:add', setId, questionId),
+      remove: (setId, questionId) => ipcRenderer.invoke('qbank:basket:remove', setId, questionId),
+      clear: (setId) => ipcRenderer.invoke('qbank:basket:clear', setId),
+      reorder: (setId, itemIds) => ipcRenderer.invoke('qbank:basket:reorder', setId, itemIds),
+      updateItem: (itemId, patch) => ipcRenderer.invoke('qbank:basket:updateItem', itemId, patch),
+      saveOptions: (setId, options) => ipcRenderer.invoke('qbank:basket:saveOptions', setId, options),
+    },
+    export: {
+      docx: (setId, options) => ipcRenderer.invoke('qbank:export:docx', setId, options),
+      pdf: (setId, options) => ipcRenderer.invoke('qbank:export:pdf', setId, options),
+      pptx: (setId, options) => ipcRenderer.invoke('qbank:export:pptx', setId, options),
+    },
+    ocr: {
+      listJobs: (questionId, part) => ipcRenderer.invoke('qbank:ocr:listJobs', questionId, part),
+      run: (params) => ipcRenderer.invoke('qbank:ocr:run', params),
+      adopt: (jobId) => ipcRenderer.invoke('qbank:ocr:adopt', jobId),
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('workbenchApi', api);
