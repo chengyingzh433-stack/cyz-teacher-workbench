@@ -28,7 +28,7 @@ test('Updater SHA256SUMS 解析：支持标准空格与星号格式并规范文�
   assert.equal(map.get('missing.zip'), undefined);
 });
 
-test('Updater 平台包选择：macOS arm64 优先选 arm64 zip，其次 arm64 dmg；Windows 选 x64 zip', () => {
+test('Updater 平台包选择：macOS arm64 优先选 arm64 zip，其次 arm64 dmg；Windows 优先选 x64 setup.exe，其次 zip', () => {
   const assets: ReleaseAssetInfo[] = [
     { name: 'SHA256SUMS.txt', browserDownloadUrl: 'https://github.com/r/SHA256SUMS.txt', size: 200 },
     { name: 'cyz-1.4.0-arm64.dmg.blockmap', browserDownloadUrl: 'https://github.com/r/bm', size: 100 },
@@ -36,10 +36,15 @@ test('Updater 平台包选择：macOS arm64 优先选 arm64 zip，其次 arm64 d
     { name: 'cyz-1.4.0-arm64-mac.zip', browserDownloadUrl: 'https://github.com/r/arm64-mac.zip', size: 145 },
     { name: 'cyz-1.4.0-x64.dmg', browserDownloadUrl: 'https://github.com/r/x64.dmg', size: 152 },
     { name: 'cyz-1.4.0-win-x64.zip', browserDownloadUrl: 'https://github.com/r/win-x64.zip', size: 140 },
+    { name: 'cyz-1.4.0-win-x64-setup.exe', browserDownloadUrl: 'https://github.com/r/win-x64-setup.exe', size: 142 },
   ];
   assert.equal(selectPlatformAsset(assets, 'darwin', 'arm64')?.name, 'cyz-1.4.0-arm64-mac.zip');
   assert.equal(selectPlatformAsset(assets, 'darwin', 'x64')?.name, 'cyz-1.4.0-x64.dmg');
-  assert.equal(selectPlatformAsset(assets, 'win32', 'x64')?.name, 'cyz-1.4.0-win-x64.zip');
+  assert.equal(selectPlatformAsset(assets, 'win32', 'x64')?.name, 'cyz-1.4.0-win-x64-setup.exe');
+  assert.equal(
+    selectPlatformAsset(assets.filter((a) => !a.name.endsWith('.exe')), 'win32', 'x64')?.name,
+    'cyz-1.4.0-win-x64.zip',
+  );
 });
 
 test('Updater 镜像前缀：仅对 HTTPS GitHub 下载链接生效，绝不污染 localhost 或非 HTTPS', () => {

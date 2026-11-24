@@ -30,9 +30,23 @@ mac:
 win:
   icon: build/icon.ico
   target:
+    - target: nsis
+      arch:
+        - x64
     - target: zip
       arch:
         - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: cyz的教师工作台
+  uninstallDisplayName: cyz的教师工作台
+  installerLanguages:
+    - zh_CN
+  language: '2052'
+  artifactName: cyz-teacher-workbench-${version}-win-${arch}-setup.${ext}
 dmg:
   title: cyz的教师工作台
 electronDownload:

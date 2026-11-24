@@ -18,6 +18,7 @@
     "test:e2e": "npm run build && electron tests/e2e-electron.mjs",
     "pack:mac": "npm run build && electron-builder --mac",
     "pack:win": "npm run build && electron-builder --win zip --x64",
+    "pack:win:exe": "npm run build && electron-builder --win nsis --x64",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/*.ts\""
   },
   "dependencies": {

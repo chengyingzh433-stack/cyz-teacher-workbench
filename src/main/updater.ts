@@ -487,6 +487,23 @@ export class AppUpdater {
       }
     }
 
+    // Windows NSIS Setup .exe: launch verified installer directly and quit current process
+    if (
+      process.platform === 'win32' &&
+      this.state.downloadedFilePath &&
+      /\.exe$/i.test(this.state.downloadedFilePath) &&
+      fs.existsSync(this.state.downloadedFilePath)
+    ) {
+      this.setState({ phase: 'installing' });
+      const child = spawn(this.state.downloadedFilePath, [], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      setTimeout(() => this.onRequestQuit(), 200);
+      return { mode: 'relaunching' };
+    }
+
     // Fallback (dev mode, Windows green zip, or read-only directory): reveal or open downloaded file
     if (this.state.downloadedFilePath && fs.existsSync(this.state.downloadedFilePath)) {
       if (process.platform === 'darwin' && /\.dmg$/i.test(this.state.downloadedFilePath)) {

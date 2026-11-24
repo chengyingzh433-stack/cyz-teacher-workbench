@@ -1,0 +1,109 @@
+name: Build Windows x64 Installer (.exe) & Attach to Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Target existing GitHub Release tag (e.g. v1.4.0)'
+        required: true
+        type: string
+      checkout_ref:
+        description: 'Git ref to build from (leave blank to use release_tag)'
+        required: false
+        default: 'main'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Determine release tag and checkout ref
+        id: meta
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $tag = "${{ github.event.release.tag_name }}"
+            $ref = $tag
+          } else {
+            $tag = "${{ inputs.release_tag }}"
+            $ref = "${{ inputs.checkout_ref }}"
+            if (-not $ref) { $ref = $tag }
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "ref=$ref" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.ref }}
+
+      - name: Setup Node.js 24 (native node:sqlite)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          if (Test-Path .npmrc) { Remove-Item .npmrc -Force }
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) {
+            Remove-Item package-lock.json -Force
+            npm install --registry=https://registry.npmjs.org --no-audit --no-fund
+          }
+
+      - name: Typecheck & Unit Tests on native Windows
+        shell: pwsh
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build Windows x64 NSIS Setup (.exe)
+        shell: pwsh
+        run: |
+          # On GitHub US runners, use official GitHub Electron mirror directly
+          node -e "const fs=require('fs');const s=fs.readFileSync('electron-builder.yml','utf8').replace(/\nelectronDownload:[\s\S]*?(?=\n\w|\s*$)/,'');fs.writeFileSync('electron-builder.yml',s);"
+          npm run build
+          npx electron-builder --win nsis --x64
+          Get-ChildItem release/
+
+      - name: Upload Windows .exe & merge unified SHA256SUMS.txt
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $exe = Get-ChildItem -Path release -Filter "*-win-x64-setup.exe" | Select-Object -First 1
+          if (-not $exe) {
+            throw "Windows setup .exe was not produced in release/"
+          }
+          $exeHash = (Get-FileHash -Path $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          Write-Host "Built $($exe.Name) ($($exe.Length) bytes) sha256=$exeHash"
+
+          # Upload the Windows installer .exe to the Release
+          gh release upload $tag $exe.FullName --clobber
+
+          # Download existing SHA256SUMS.txt (from macOS release) and merge our Windows .exe hash
+          $sumFile = Join-Path $PWD "release\SHA256SUMS.txt"
+          $existingLines = @()
+          try {
+            gh release download $tag -p "SHA256SUMS.txt" -O $sumFile --clobber
+            if (Test-Path $sumFile) {
+              $existingLines = Get-Content $sumFile | Where-Object {
+                $_ -and (-not $_.EndsWith($exe.Name))
+              }
+            }
+          } catch {
+            Write-Host "No existing SHA256SUMS.txt on release $tag yet; creating fresh file."
+          }
+
+          $merged = @($existingLines) + @("$exeHash  $($exe.Name)")
+          [System.IO.File]::WriteAllText($sumFile, (($merged -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+          Get-Content $sumFile
+          gh release upload $tag $sumFile --clobber

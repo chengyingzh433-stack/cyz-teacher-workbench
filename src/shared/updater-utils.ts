@@ -86,6 +86,14 @@ export function selectPlatformAsset(
   }
 
   if (platform === 'win32') {
+    const winExe = usable.find(
+      (a) =>
+        /\.exe$/i.test(a.name) &&
+        (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('win') || a.name.toLowerCase().includes('setup')),
+    );
+    if (winExe) return winExe;
+    const anyExe = usable.find((a) => /\.exe$/i.test(a.name));
+    if (anyExe) return anyExe;
     const winZip = usable.find(
       (a) =>
         /\.zip$/i.test(a.name) &&
@@ -94,8 +102,6 @@ export function selectPlatformAsset(
         !a.name.toLowerCase().includes('arm64'),
     );
     if (winZip) return winZip;
-    const winExe = usable.find((a) => /\.exe$/i.test(a.name));
-    if (winExe) return winExe;
   }
 
   return null;

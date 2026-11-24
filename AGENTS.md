@@ -16,3 +16,4 @@
 | Windows 便携包必须显式构建 `x64` 架构（禁止在 Apple Silicon Mac 上误打成 `win-arm64`） | `package.json` `"pack:win"` 固定 `--win zip --x64` |
 | API Key 绝不得明文落盘或写入可共享的 Vault 资料库目录 | `tests/vault-sqlite.test.ts` Keychain 测试 |
 | 智学网伴侣保持独立净室实现，绝不复制 GPL-3.0 外部源码；自动模式仅在置信度达标且零红线/零 OCR 冲突时经可自选间隔且按 Esc 急停的倒计时提交，严禁无拦截盲交 | 人工审查 `src/main/zhixue-view.ts` 与 `ZhixueCompanion.tsx` + E2E 实测 |
+| 每次发布 GitHub Release 必须同时提供 macOS（`arm64` `.dmg` + `.zip`）与 Windows（`x64` NSIS 安装包 `.exe`）及统一 `SHA256SUMS.txt` | macOS 本机构建 + `.github/workflows/build-win-release.yml` 原生 `windows-latest` 自动构建并合并校验和 |
