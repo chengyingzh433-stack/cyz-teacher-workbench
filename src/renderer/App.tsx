@@ -275,8 +275,8 @@ export function App() {
               </>
             ) : space === 'zhixue' ? (
               <>
-                <h1 className="text-[16px] font-bold truncate">智学网 / 网阅伴侣</h1>
-                <Badge tone="accent">原生内嵌视口</Badge>
+                <h1 className="text-[16px] font-bold truncate">智学网伴侣 · AI 网阅中心</h1>
+                <Badge tone="accent">内嵌浏览器 · 框选 · 自动/半自动</Badge>
               </>
             ) : currentClass ? (
               <>
@@ -434,6 +434,7 @@ export function App() {
                 setSettingsTab('ai');
                 setSettingsOpen(true);
               }}
+              onOpenZhixue={() => setSpace('zhixue')}
               onNotify={notify}
             />
           )}

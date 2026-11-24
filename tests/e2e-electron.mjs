@@ -1,12 +1,98 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, dialog, safeStorage } from 'electron';
 import { unzipSync } from 'fflate';
 import { PDFDocument } from 'pdf-lib';
+
+// Local simulated online marking page for real WebContentsView ROI / score-crawler / submit E2E
+let mockPaperIndex = 1;
+const mockZhixueHtml = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>模拟智学网在线阅卷页</title>
+  <style>
+    body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#f1f5f9; color:#0f172a; display:flex; height:100vh; overflow:hidden; }
+    .paper-pane { flex:1; padding:18px; display:flex; flex-direction:column; gap:10px; }
+    .paper-header { font-size:13px; color:#475569; font-weight:600; display:flex; justify-content:space-between; }
+    #paper-box { flex:1; background:#ffffff; border:2px solid #cbd5e1; border-radius:12px; padding:24px; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+    #paper-title { font-size:20px; font-weight:700; color:#0f172a; }
+    #paper-work { font-size:17px; line-height:1.9; color:#1e293b; font-family:Georgia,serif; }
+    .mark-pane { width:220px; background:#ffffff; border-left:1px solid #cbd5e1; padding:16px; display:flex; flex-direction:column; gap:14px; }
+    .score-panel { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+    .score-btn { height:38px; border:1px solid #cbd5e1; border-radius:8px; background:#f8fafc; font-size:15px; font-weight:700; cursor:pointer; }
+    .score-btn.active { background:#059669; color:#fff; border-color:#059669; }
+    #score-input { width:100%; box-sizing:border-box; height:36px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; font-size:14px; }
+    #submit-next-btn { height:40px; border:none; border-radius:8px; background:#2563eb; color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+    #status-bar { font-size:12px; color:#059669; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="paper-pane">
+    <div class="paper-header">
+      <span>智学网 · 高二物理第 13 题阅卷模拟</span>
+      <span id="paper-badge">第 1 份答卷</span>
+    </div>
+    <div id="paper-box">
+      <div id="paper-title">学生手写答卷 #1（牛顿第二定律）</div>
+      <div id="paper-work">解：由牛顿第二定律 F = ma<br/>代入得 a = 10 / 2 = 5 m/s²<br/>经过 t = 2s 后速度 v = at = 10 m/s</div>
+    </div>
+  </div>
+  <div class="mark-pane">
+    <div style="font-size:13px;font-weight:700;">快捷打分（满分 6 分）</div>
+    <div class="score-panel" id="score-panel">
+      <button class="score-btn" type="button">0</button>
+      <button class="score-btn" type="button">1</button>
+      <button class="score-btn" type="button">2</button>
+      <button class="score-btn" type="button">3</button>
+      <button class="score-btn" type="button">4</button>
+      <button class="score-btn" type="button">5</button>
+      <button class="score-btn" type="button">6</button>
+    </div>
+    <input id="score-input" type="number" placeholder="输入分值" />
+    <button id="submit-next-btn" type="button">提交并下一份</button>
+    <div id="status-bar">等待给分…</div>
+  </div>
+  <script>
+    window.__mockState = { paper: 1, lastScore: '', submittedCount: 0 };
+    const btns = Array.from(document.querySelectorAll('.score-btn'));
+    const input = document.getElementById('score-input');
+    const status = document.getElementById('status-bar');
+    btns.forEach((b) => b.addEventListener('click', () => {
+      btns.forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      input.value = b.textContent.trim();
+      window.__mockState.lastScore = input.value;
+      status.textContent = '已选中分值：' + input.value + ' 分';
+    }));
+    document.getElementById('submit-next-btn').addEventListener('click', () => {
+      window.__mockState.submittedCount += 1;
+      window.__mockState.paper += 1;
+      const p = window.__mockState.paper;
+      document.getElementById('paper-badge').textContent = '第 ' + p + ' 份答卷';
+      document.getElementById('paper-title').textContent = '学生手写答卷 #' + p + '（动能定理）';
+      document.getElementById('paper-work').innerHTML = '解：由动能定理 W = ΔEk = ½mv²<br/>代入得 Ek = 0.5 × 2 × 4² = 16 J';
+      status.textContent = '已提交第 ' + (p - 1) + ' 份（' + window.__mockState.lastScore + ' 分）';
+      btns.forEach((x) => x.classList.remove('active'));
+      input.value = '';
+    });
+  </script>
+</body>
+</html>`;
+
+const mockServer = http.createServer((_req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(mockZhixueHtml);
+});
+await new Promise((resolve) => mockServer.listen(0, '127.0.0.1', resolve));
+const mockPort = mockServer.address().port;
+const mockZhixueUrl = `http://127.0.0.1:${mockPort}/`;
+void mockPaperIndex;
 
 // Guardrail spy: verify zero passive macOS Keychain async prompts across the entire desktop run!
 let asyncKeychainCalls = 0;
@@ -205,6 +291,65 @@ app.on('browser-window-created', (_ev, win) => {
       assert.deepEqual(foundThemes, themeNames, 'Settings modal must list all 7 preset themes');
       await saveShot(win, '03-settings-7-themes.png');
 
+      // Step 3b: Settings -> AI Model & Keychain -> verify platform links, Stage 2 judge, and OCR presets!
+      await win.webContents.executeJavaScript(`(() => {
+        const tab = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('AI 模型与系统钥匙串'));
+        if (!tab) throw new Error('AI settings tab not found');
+        tab.click();
+      })()`);
+      await sleep(350);
+      // Open OCR select and choose 独立视觉 OCR 模型 to reveal SiliconFlow/DashScope OCR presets
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const triggers = Array.from(dlg.querySelectorAll('button[role="combobox"]'));
+        const ocrTrigger = triggers.find((b) => (b.textContent || '').includes('关闭（单路轻模式'));
+        if (!ocrTrigger) throw new Error('OCR mode select trigger not found');
+        ocrTrigger.click();
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const opt = Array.from(document.querySelectorAll('[role="option"]')).find((el) => (el.textContent || '').includes('独立视觉 OCR 模型'));
+        if (!opt) throw new Error('Vision OCR option not found');
+        opt.click();
+      })()`);
+      await sleep(250);
+      // Click 硅基 DeepSeek-OCR preset and verify URL + Model ID auto-filled
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').trim() === '硅基 DeepSeek-OCR');
+        if (!btn) throw new Error('SiliconFlow DeepSeek-OCR preset button not found');
+        btn.click();
+      })()`);
+      await sleep(250);
+      const aiSettingsCheck = await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const text = dlg?.innerText || '';
+        const inputs = Array.from(dlg.querySelectorAll('input')).map((i) => i.value);
+        return {
+          hasDeepSeekLink: text.includes('DeepSeek 开放平台'),
+          hasSiliconLink: text.includes('硅基流动 SiliconFlow'),
+          hasDoc2xLink: text.includes('去 Doc2X 官网获取 Key'),
+          hasStage2Judge: text.includes('阶段二：得分点判分推理模型'),
+          hasOcrPresets: text.includes('百炼 qwen-vl-ocr') && text.includes('硅基 DeepSeek-OCR'),
+          filledSiliconUrl: inputs.includes('https://api.siliconflow.cn/v1'),
+          filledDeepSeekOcr: inputs.includes('deepseek-ai/DeepSeek-OCR'),
+        };
+      })()`);
+      assert.equal(aiSettingsCheck.hasDeepSeekLink, true, 'AI settings must link to DeepSeek console');
+      assert.equal(aiSettingsCheck.hasSiliconLink, true, 'AI settings must link to SiliconFlow console');
+      assert.equal(aiSettingsCheck.hasDoc2xLink, true, 'AI settings must link to Doc2X website');
+      assert.equal(aiSettingsCheck.hasStage2Judge, true, 'AI settings must expose Stage 2 judge model');
+      assert.equal(aiSettingsCheck.hasOcrPresets, true, 'AI settings must display OCR model presets');
+      assert.equal(aiSettingsCheck.filledSiliconUrl, true, 'Clicking OCR preset must auto-fill SiliconFlow URL');
+      assert.equal(aiSettingsCheck.filledDeepSeekOcr, true, 'Clicking OCR preset must auto-fill DeepSeek-OCR model ID');
+      await saveShot(win, '03b-settings-ai-presets.png');
+      // Switch back to Theme tab for Step 4
+      await win.webContents.executeJavaScript(`(() => {
+        const tab = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('外观与主题风格'));
+        if (!tab) throw new Error('Theme tab not found');
+        tab.click();
+      })()`);
+      await sleep(250);
+
       // Step 4: Select 晨雾毛玻璃 -> verify DOM attributes + real disk persistence
       await clickThemeCard(win, '晨雾毛玻璃');
       await closeSettings(win);
@@ -282,11 +427,15 @@ app.on('browser-window-created', (_ev, win) => {
         const chartText = charts.map((c) => c.textContent || '').join(' ');
         return {
           hasMean: text.includes('78.22'),
+          hasZhixueShortcut: text.includes('智学网 AI 阅卷'),
+          hasCollapsedOffline: text.includes('离线拍照阅卷'),
           chartCount: charts.length,
           hasBandLabels: chartText.includes('90%–100%') && chartText.includes('9人'),
         };
       })()`);
       assert.equal(examCheck.hasMean, true, 'Exam center must show 78.22 class average');
+      assert.equal(examCheck.hasZhixueShortcut, true, 'Exam center must provide shortcut to Zhixue AI grading');
+      assert.equal(examCheck.hasCollapsedOffline, true, 'Exam center must keep offline photo grading as secondary entry');
       assert.ok(examCheck.chartCount >= 1, 'ECharts histogram must render visibly');
       assert.equal(examCheck.hasBandLabels, true, 'ECharts histogram must show score band labels and counts');
       await saveShot(win, '08-editorial-exams.png');
@@ -529,9 +678,124 @@ app.on('browser-window-created', (_ev, win) => {
       assert.equal(hrMatCheck, true, 'Materials & Memos tab must display theme content and seeded memos');
       await saveShot(win, '14-homeroom-materials-memos.png');
 
-      // Step 15: Open Zhixuewang Companion -> verify WebContentsView attaches cleanly with 0 errors
+      // Step 15: Zhixuewang Companion -> load local mock marking page, test ROI picker, score crawler, click+submit, auto-mode interval!
       await navTo(win, '智学网伴侣');
+      await sleep(450);
+      await win.webContents.executeJavaScript(`(() => {
+        const input = document.querySelector('main form input');
+        if (!input) throw new Error('Zhixue URL input not found');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, ${JSON.stringify(mockZhixueUrl)});
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        const submit = document.querySelector('main form button[type="submit"]');
+        submit.click();
+      })()`);
+      await sleep(1100);
+
+      // 15a. Click 自动爬取得分选项 -> verify 7 score buttons (0..6) & submit button detected!
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('自动爬取得分选项'));
+        if (!btn) throw new Error('Crawl score options button not found');
+        btn.click();
+      })()`);
+      await sleep(500);
+      // Expand quick rubric card briefly to verify sync max button, then collapse back so recognition box stays full-height
+      await win.webContents.executeJavaScript(`(() => {
+        const rubricToggle = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('本题评分细则'));
+        if (!rubricToggle) throw new Error('Rubric card toggle not found');
+        rubricToggle.click();
+      })()`);
+      await sleep(200);
+      const crawlUiCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        return {
+          hasCount: text.includes('已爬取 7 个分值'),
+          hasSubmit: text.includes('提交并下一份'),
+          hasSyncMax: text.includes('同步满分(6)'),
+          hasRecBox: text.includes('识别内容与核对框'),
+        };
+      })()`);
+      assert.equal(crawlUiCheck.hasCount, true, 'Must crawl all 7 score buttons (0..6) from mock marking page');
+      assert.equal(crawlUiCheck.hasSubmit, true, 'Must detect 提交并下一份 submit button');
+      assert.equal(crawlUiCheck.hasSyncMax, true, 'Quick rubric must offer syncing crawled max score (6)');
+      assert.equal(crawlUiCheck.hasRecBox, true, 'Always-visible recognition content box must render');
+      await win.webContents.executeJavaScript(`(() => {
+        const rubricToggle = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('本题评分细则'));
+        rubricToggle?.click();
+      })()`);
+      await sleep(150);
+
+      // 15b. Test interactive ROI picker inside WebContentsView!
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('设置读取区域'));
+        if (!btn) throw new Error('Pick region button not found');
+        btn.click();
+      })()`);
+      await sleep(450);
+      const childView = win.contentView.children[0];
+      assert.ok(childView && childView.webContents, 'WebContentsView must be attached as child view');
+      await childView.webContents.executeJavaScript(`(() => {
+        const host = document.getElementById('__cyz_roi_picker__');
+        if (!host || !host.shadowRoot) throw new Error('ROI picker overlay not injected');
+        const mask = host.shadowRoot.getElementById('mask');
+        const box = document.getElementById('paper-box').getBoundingClientRect();
+        mask.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: box.left + 10, clientY: box.top + 10 }));
+        mask.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: box.right - 10, clientY: box.bottom - 10 }));
+        mask.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: box.right - 10, clientY: box.bottom - 10 }));
+        host.shadowRoot.getElementById('btnOk').click();
+      })()`);
+      await sleep(600);
+      const roiUiCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.body.innerText;
+        const shotImg = document.querySelector('main img[alt="截取答卷区"]');
+        return {
+          hasRoiBadge: /读取区 \\d+×\\d+/.test(text),
+          hasPreviewImg: Boolean(shotImg && shotImg.src.startsWith('data:image/png;base64,')),
+        };
+      })()`);
+      assert.equal(roiUiCheck.hasRoiBadge, true, 'Setting ROI must display 读取区 W×H badge');
+      assert.equal(roiUiCheck.hasPreviewImg, true, 'Setting ROI must capture and preview the ROI thumbnail');
+
+      // 15c. Click crawled score option "5" in right panel -> click 打分并提交 -> verify mock page updated to paper #2!
+      await win.webContents.executeJavaScript(`(() => {
+        const fiveBtn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').trim() === '5');
+        if (!fiveBtn) throw new Error('Crawled score button 5 not found');
+        fiveBtn.click();
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const submitBtn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('打分并提交'));
+        if (!submitBtn) throw new Error('Apply & submit button not found');
+        submitBtn.click();
+      })()`);
+      await sleep(500);
+      const mockStateAfterSubmit = await childView.webContents.executeJavaScript(`window.__mockState`);
+      assert.equal(mockStateAfterSubmit.lastScore, '5', 'Clicking score 5 must select score 5 inside embedded webpage');
+      assert.equal(mockStateAfterSubmit.submittedCount, 1, 'Clicking 打分并提交 must click webpage submit button');
+      assert.equal(mockStateAfterSubmit.paper, 2, 'Submitting must advance mock marking page to paper #2');
+
+      // 15d. Switch to 自动模式 and pick custom auto-submit delay 2.5s -> verify persistence on disk!
+      await win.webContents.executeJavaScript(`(() => {
+        const autoTab = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').trim() === '自动模式');
+        if (!autoTab) throw new Error('Auto mode tab not found');
+        autoTab.click();
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const delayBtn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').trim() === '2.5s');
+        if (!delayBtn) throw new Error('2.5s auto-delay button not found');
+        delayBtn.click();
+      })()`);
+      await sleep(350);
+      const savedProfiles = JSON.parse(fs.readFileSync(path.join(tmpUserData, 'zhixue-profiles.json'), 'utf8'));
+      const originKey = new URL(mockZhixueUrl).origin;
+      assert.equal(savedProfiles[originKey]?.autoDelaySec, 2.5, 'Selected auto-submit interval (2.5s) must persist');
+      assert.ok(savedProfiles[originKey]?.roi?.width > 100, 'Selected ROI rect must persist to zhixue-profiles.json');
       await saveShot(win, '15-zhixue-companion.png');
+      // Also capture the live embedded WebContentsView itself to visually verify the dashed AI 读取区 frame on the webpage
+      const webviewImg = await childView.webContents.capturePage();
+      fs.writeFileSync(path.join(shotsDir, '15b-zhixue-webview.png'), webviewImg.toPNG());
+      console.log(`[E2E SHOT] 15b-zhixue-webview.png (${webviewImg.getSize().width}x${webviewImg.getSize().height})`);
 
       // Step 16: Apps Hub -> verify 6 module cards & customizable sidebar pin/unpin persistence
       await navTo(win, '全部功能中心');
@@ -779,12 +1043,14 @@ app.on('browser-window-created', (_ev, win) => {
         `macOS zero-popup guardrail violated: safeStorage.isAsyncEncryptionAvailable called ${asyncKeychainCalls} times!`,
       );
       assert.equal(errors.length, 0, `Encountered runtime errors:\n${errors.join('\n')}`);
-      console.log('[E2E PASS] All 22 real desktop user flows (incl. Apps Hub & 6-page physics PDF qbank + Word/PDF/PPTX exports) passed with 0 errors!');
+      console.log('[E2E PASS] All 23 real desktop user flows (incl. AI presets, Zhixue ROI/crawler/auto-delay, Apps Hub & 6-page physics PDF qbank + Word/PDF/PPTX exports) passed with 0 errors!');
+      mockServer.close();
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(0);
     } catch (err) {
       console.error('[E2E FAIL]', err);
       if (errors.length) console.error('[CAPTURED ERRORS]\n' + errors.join('\n'));
+      mockServer.close();
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(1);
     }

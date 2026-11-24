@@ -436,6 +436,66 @@ export interface ZhixueState {
   canGoForward: boolean;
 }
 
+export interface ZhixueRoiRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ZhixueScoreOption {
+  id: string;
+  label: string;
+  value: number | null;
+  selector: string;
+}
+
+export interface ZhixueScoreInputInfo {
+  id: string;
+  label: string;
+  placeholder: string;
+  selector: string;
+}
+
+export interface ZhixueSubmitControl {
+  id: string;
+  label: string;
+  selector: string;
+}
+
+export interface ZhixueCrawledControls {
+  url: string;
+  crawledAt: string;
+  scoreOptions: ZhixueScoreOption[];
+  scoreInputs: ZhixueScoreInputInfo[];
+  submitButton: ZhixueSubmitControl | null;
+  inferredMax: number | null;
+  inferredStep: number | null;
+  summary: string;
+}
+
+export interface ZhixueSiteProfile {
+  origin: string;
+  roi: ZhixueRoiRect | null;
+  scoreGroupSelector?: string;
+  submitSelector?: string;
+  autoDelaySec?: number;
+}
+
+export interface ZhixueApplyScoreResult {
+  ok: boolean;
+  clickedOptionLabel?: string;
+  filledInput?: boolean;
+  submitted: boolean;
+  detail: string;
+}
+
+export interface ZhixuePaperChangeResult {
+  diffFromBaseline: number;
+  diffFromPrev: number;
+  stableChanged: boolean;
+}
+
 export interface CharacterCatalog {
   teacherDefaults: { male: string; female: string };
   characters: Array<{

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AiKeychainStore, normalizeModelsEndpoint } from '../src/main/keychain';
+import { AI_PLATFORM_LINKS, AI_PRESETS, findPlatformLinkForUrl } from '../src/shared/ai-presets';
 import { MainAiProxy } from '../src/main/ai-proxy';
 import {
   analyzeRgbaInk,
@@ -201,4 +202,18 @@ test('参考答案 AI 一键拆解得分点 + 拉取模型地址规范化', asyn
   });
   assert.equal(out.criteria.length, 1);
   assert.equal(out.criteria[0].maxScore, '2');
+});
+
+test('AI 开放平台跳转链接与 OCR/视觉预设完整性校验', () => {
+  for (const link of Object.values(AI_PLATFORM_LINKS)) {
+    const u = new URL(link.url);
+    assert.equal(u.protocol, 'https:', `平台链接 ${link.id} 必须为 HTTPS`);
+  }
+  assert.ok(AI_PRESETS.general.some((p) => p.id === 'deepseek'));
+  assert.ok(AI_PRESETS.general.some((p) => p.id === 'siliconflow'));
+  assert.ok(AI_PRESETS.ocrModel.some((p) => p.model.includes('DeepSeek-OCR')));
+  assert.ok(AI_PRESETS.ocrModel.some((p) => p.model.includes('qwen-vl-ocr')));
+  assert.ok(AI_PRESETS.ocrHttp.some((p) => p.id === 'pix2text'));
+  assert.equal(findPlatformLinkForUrl('https://api.siliconflow.cn/v1')?.id, 'siliconflow');
+  assert.equal(findPlatformLinkForUrl('https://api.deepseek.com')?.id, 'deepseek');
 });

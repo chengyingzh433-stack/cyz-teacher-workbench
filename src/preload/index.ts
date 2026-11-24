@@ -5,6 +5,7 @@ import type { ZhixueState } from '../shared/types';
 const api: WorkbenchApi = {
   platform: process.platform,
   appVersion: '1.3.0',
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 
   vault: {
     getInfo: () => ipcRenderer.invoke('vault:getInfo'),
@@ -149,12 +150,28 @@ const api: WorkbenchApi = {
     goForward: () => ipcRenderer.invoke('zhixue:goForward'),
     reload: () => ipcRenderer.invoke('zhixue:reload'),
     captureRegion: (rect) => ipcRenderer.invoke('zhixue:captureRegion', rect),
+    getSiteProfile: (url) => ipcRenderer.invoke('zhixue:getSiteProfile', url),
+    saveSiteProfile: (patch) => ipcRenderer.invoke('zhixue:saveSiteProfile', patch),
+    pickRegion: () => ipcRenderer.invoke('zhixue:pickRegion'),
+    cancelPickRegion: () => ipcRenderer.invoke('zhixue:cancelPickRegion'),
+    setRoiHighlight: (rect, visible) => ipcRenderer.invoke('zhixue:setRoiHighlight', rect, visible),
+    crawlControls: (hints) => ipcRenderer.invoke('zhixue:crawlControls', hints),
+    pickElement: (role) => ipcRenderer.invoke('zhixue:pickElement', role),
+    cancelPickElement: () => ipcRenderer.invoke('zhixue:cancelPickElement'),
+    applyScore: (params) => ipcRenderer.invoke('zhixue:applyScore', params),
+    markPaperBaseline: (rect) => ipcRenderer.invoke('zhixue:markPaperBaseline', rect),
+    checkPaperChanged: (rect) => ipcRenderer.invoke('zhixue:checkPaperChanged', rect),
     fillScore: (scoreText, selectorHint) =>
       ipcRenderer.invoke('zhixue:fillScore', scoreText, selectorHint),
     onStateChange: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, state: ZhixueState) => cb(state);
       ipcRenderer.on('zhixue:state', listener);
       return () => ipcRenderer.removeListener('zhixue:state', listener);
+    },
+    onEscapePressed: (cb) => {
+      const listener = () => cb();
+      ipcRenderer.on('zhixue:escape', listener);
+      return () => ipcRenderer.removeListener('zhixue:escape', listener);
     },
   },
 

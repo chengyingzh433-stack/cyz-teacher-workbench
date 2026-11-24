@@ -83,7 +83,7 @@ export function Sidebar({
     {
       id: 'exams',
       label: '统一考试中心',
-      hint: '成绩图表 · AI 阅卷',
+      hint: '成绩图表 · 导入 · 助教',
       icon: BarChart3,
       badge: currentClass?.examCount,
     },
@@ -113,7 +113,7 @@ export function Sidebar({
     {
       id: 'zhixue',
       label: '智学网伴侣',
-      hint: '内置网页 · AI 抓图填分',
+      hint: 'AI 网阅 · 框选 · 自动',
       icon: Globe,
     },
   ];

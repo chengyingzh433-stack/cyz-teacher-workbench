@@ -47,8 +47,8 @@ const HUB_APPS: HubAppCard[] = [
   {
     id: 'exams',
     title: '统一考试中心',
-    subtitle: 'Excel 成绩分析 · ECharts · AI 阅卷',
-    description: '导入成绩单生成交互分数段图表与多考走势，挂载主观题启用双段防幻觉 AI 辅助批阅。',
+    subtitle: 'Excel 成绩分析 · ECharts · 学情助教',
+    description: '导入成绩单生成交互分数段直方图与多考走势对比，内置隐私透明的只读 AI 学情对话助教。',
     group: 'class',
     icon: BarChart3,
   },
@@ -71,8 +71,8 @@ const HUB_APPS: HubAppCard[] = [
   {
     id: 'zhixue',
     title: '智学网伴侣',
-    subtitle: '原生内嵌网阅视口 · AI 抓图参考',
-    description: '无需切窗直连网阅平台，保持登录会话并可按需调用本机 AI 辅助识别与参考给分。',
+    subtitle: '内置网阅浏览器 · 框选区域 · 自动/半自动 AI 阅卷',
+    description: '内嵌智学网/七天网络/好分数，支持框选读取区域、自动爬取得分选项、自选间隔自动提交与实时识别核对框。',
     group: 'global',
     icon: Globe,
   },

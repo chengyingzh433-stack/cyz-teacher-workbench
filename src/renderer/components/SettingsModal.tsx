@@ -3,17 +3,13 @@ import {
   Check,
   FolderOpen,
   HardDrive,
-  KeyRound,
   Palette,
-  RefreshCw,
-  ShieldCheck,
   Sparkles,
-  Trash2,
 } from 'lucide-react';
-import type { AiConfigView, RemoteModelInfo, VaultInfo } from '../../shared/types';
-import { AI_PRESETS, DEEPSEEK_DEFAULTS } from '../../shared/ai-presets';
+import type { VaultInfo } from '../../shared/types';
 import { listThemes } from '../themes';
-import { Badge, Button, Card, Input, Modal, Select } from './ui/primitives';
+import { AiSettingsTab } from './AiSettingsTab';
+import { Badge, Button, Card, Modal } from './ui/primitives';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -41,105 +37,10 @@ export function SettingsModal({
   onNotify: (msg: string, tone?: 'ok' | 'err') => void;
 }) {
   const [tab, setTab] = useState<'theme' | 'ai' | 'vault'>(initialTab);
-  const [aiView, setAiView] = useState<AiConfigView | null>(null);
-
-  // AI form states
-  const [gProvider, setGProvider] = useState<'deepseek' | 'custom'>('deepseek');
-  const [gUrl, setGUrl] = useState('');
-  const [gModel, setGModel] = useState<string>(DEEPSEEK_DEFAULTS.model);
-  const [gKey, setGKey] = useState('');
-
-  const [vMode, setVMode] = useState<'inherit' | 'custom'>('inherit');
-  const [vUrl, setVUrl] = useState('');
-  const [vModel, setVModel] = useState('');
-  const [vKey, setVKey] = useState('');
-
-  const [jMode, setJMode] = useState<'inherit' | 'custom'>('inherit');
-  const [jUrl, setJUrl] = useState('');
-  const [jModel, setJModel] = useState('');
-  const [jKey, setJKey] = useState('');
-
-  const [oMode, setOMode] = useState<'off' | 'vision-model' | 'http-ocr'>('off');
-  const [oUrl, setOUrl] = useState('');
-  const [oModel, setOModel] = useState('');
-  const [oKey, setOKey] = useState('');
-  const [d2xEnabled, setD2xEnabled] = useState(false);
-  const [d2xKey, setD2xKey] = useState('');
-
-  const [pulledModels, setPulledModels] = useState<RemoteModelInfo[]>([]);
-  const [pulling, setPulling] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab, open]);
-
-  useEffect(() => {
-    if (!open) return;
-    window.workbenchApi.ai.getConfig().then((cfg) => {
-      setAiView(cfg);
-      setGProvider(cfg.general.provider);
-      setGUrl(cfg.general.url);
-      setGModel(cfg.general.model);
-      setGKey('');
-      setVMode(cfg.vision.mode);
-      setVUrl(cfg.vision.url);
-      setVModel(cfg.vision.model);
-      setVKey('');
-      setJMode(cfg.judge.mode);
-      setJUrl(cfg.judge.url);
-      setJModel(cfg.judge.model);
-      setJKey('');
-      setOMode(cfg.ocr.mode);
-      setOUrl(cfg.ocr.url);
-      setOModel(cfg.ocr.model);
-      setOKey('');
-      setD2xEnabled(Boolean(cfg.doc2x?.enabled));
-      setD2xKey('');
-    });
-  }, [open]);
-
-  async function saveAiConfig() {
-    setSaving(true);
-    try {
-      const updated = await window.workbenchApi.ai.saveConfig({
-        general: { provider: gProvider, url: gUrl, model: gModel, key: gKey || undefined },
-        vision: { mode: vMode, url: vUrl, model: vModel, key: vKey || undefined },
-        judge: { mode: jMode, url: jUrl, model: jModel, key: jKey || undefined },
-        ocr: { mode: oMode, url: oUrl, model: oModel, key: oKey || undefined },
-        doc2x: { enabled: d2xEnabled, key: d2xKey || undefined },
-      });
-      setAiView(updated);
-      setGKey('');
-      setVKey('');
-      setJKey('');
-      setOKey('');
-      setD2xKey('');
-      onNotify('AI 配置已通过系统钥匙串安全加密保存！重启软件不再丢失');
-    } catch (e) {
-      onNotify((e as Error).message, 'err');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function pullModels() {
-    setPulling(true);
-    try {
-      const url = gProvider === 'deepseek' ? DEEPSEEK_DEFAULTS.url : gUrl;
-      const list = await window.workbenchApi.ai.listModels({
-        url,
-        key: gKey || undefined,
-        fallbackRole: 'general',
-      });
-      setPulledModels(list);
-      onNotify(`成功拉取 ${list.length} 个可用模型`);
-    } catch (e) {
-      onNotify((e as Error).message, 'err');
-    } finally {
-      setPulling(false);
-    }
-  }
 
   return (
     <Modal
@@ -200,7 +101,6 @@ export function SettingsModal({
                       boxShadow: isPixel ? '2px 2px 0 rgba(74,55,40,0.28)' : undefined,
                     }}
                   >
-                    {/* Mini Sidebar */}
                     <div
                       className="w-[28%] h-full p-2 flex flex-col gap-1.5 border-r"
                       style={{
@@ -226,7 +126,6 @@ export function SettingsModal({
                         style={{ background: t.chartPalette.muted, opacity: 0.25 }}
                       />
                     </div>
-                    {/* Mini Classroom + Chart Canvas */}
                     <div className="flex-1 p-2 flex flex-col gap-1.5">
                       <div
                         className="h-7 rounded-md flex items-center justify-center"
@@ -308,213 +207,7 @@ export function SettingsModal({
       )}
 
       {/* TAB 2: AI Models & OS Keychain */}
-      {tab === 'ai' && (
-        <div className="flex flex-col gap-4">
-          <div className="p-3 rounded-xl bg-[var(--ok-soft)] text-[var(--ok)] text-xs flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              {aiView?.secureStorageAvailable
-                ? '系统钥匙串加密已开启：所有 API Key 经系统原生加密保存于本机，绝不写入资料库文件夹。'
-                : 'API Key 保存于本机用户私有配置目录，绝不写入资料库文件夹。'}
-            </span>
-            <Button
-              size="xs"
-              variant="danger-ghost"
-              onClick={async () => {
-                const updated = await window.workbenchApi.ai.clearKeys();
-                setAiView(updated);
-                onNotify('已清除全部已存 API Key');
-              }}
-            >
-              <Trash2 className="w-3.5 h-3.5" /> 清空密钥
-            </Button>
-          </div>
-
-          {/* Unified Default Model */}
-          <Card className="p-3.5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[13.5px] font-semibold flex items-center gap-1.5">
-                <KeyRound className="w-4 h-4 text-[var(--accent)]" /> 统一默认模型（学情助教 + 阅卷默认复用）
-              </h4>
-              {aiView?.general.hasKey && <Badge tone="ok">已加密记住 Key</Badge>}
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-[var(--ink-muted)]">服务商</span>
-                <Select
-                  value={gProvider}
-                  onValueChange={(v) => {
-                    const p = v as 'deepseek' | 'custom';
-                    setGProvider(p);
-                    if (p === 'deepseek') {
-                      setGUrl(DEEPSEEK_DEFAULTS.url);
-                      setGModel(DEEPSEEK_DEFAULTS.model);
-                    }
-                  }}
-                  className="w-full"
-                  options={[
-                    { value: 'deepseek', label: 'DeepSeek 官方' },
-                    { value: 'custom', label: '自定义 OpenAI 兼容接口（含本机 Ollama）' },
-                  ]}
-                />
-              </div>
-              <label className="flex flex-col gap-1 text-xs text-[var(--ink-muted)]">
-                模型 ID
-                <Input value={gModel} onChange={(e) => setGModel(e.target.value)} className="h-8 text-xs" />
-              </label>
-            </div>
-            {gProvider === 'custom' && (
-              <label className="flex flex-col gap-1 text-xs text-[var(--ink-muted)]">
-                API Base URL
-                <Input
-                  value={gUrl}
-                  onChange={(e) => setGUrl(e.target.value)}
-                  placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
-                  className="h-8 text-xs"
-                />
-              </label>
-            )}
-            <div className="flex items-end gap-2">
-              <label className="flex-1 flex flex-col gap-1 text-xs text-[var(--ink-muted)]">
-                API Key（留空则保持已加密记住的旧 Key 不变）
-                <Input
-                  type="password"
-                  value={gKey}
-                  onChange={(e) => setGKey(e.target.value)}
-                  placeholder={aiView?.general.hasKey ? '••••••••（已加密保存，重新输入可覆盖）' : 'sk-...'}
-                  className="h-8 text-xs"
-                />
-              </label>
-              <Button size="sm" disabled={pulling} onClick={() => void pullModels()}>
-                <RefreshCw className={`w-3.5 h-3.5 ${pulling ? 'animate-spin' : ''}`} /> 拉取模型
-              </Button>
-            </div>
-            {pulledModels.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
-                {pulledModels.slice(0, 30).map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setGModel(m.id)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] border cursor-pointer ${
-                      gModel === m.id
-                        ? 'bg-[var(--accent-soft)] border-[var(--accent)] text-[var(--accent)] font-semibold'
-                        : 'bg-[var(--bg-muted)] border-transparent'
-                    }`}
-                  >
-                    {m.id}
-                    {m.vision ? ' 👁' : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Optional Specialized Vision / Judge / OCR */}
-          <Card className="p-3.5 flex flex-col gap-3">
-            <h4 className="text-[13.5px] font-semibold">手写阅卷模型分工与辅助 OCR（可选）</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium">阶段一：盲识图视觉模型 (VLM)</span>
-                <Select
-                  value={vMode}
-                  onValueChange={(v) => setVMode(v as 'inherit' | 'custom')}
-                  className="w-full"
-                  options={[
-                    { value: 'inherit', label: `跟随统一模型 (${gModel})` },
-                    { value: 'custom', label: '单独指定视觉模型' },
-                  ]}
-                />
-                {vMode === 'custom' && (
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <div className="flex flex-wrap gap-1">
-                      {AI_PRESETS.vision.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setVUrl(p.url);
-                            setVModel(p.model);
-                          }}
-                          className="text-[11px] px-2 py-0.5 rounded bg-[var(--bg-muted)] hover:bg-[var(--bg-hover)] cursor-pointer"
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                    <Input value={vUrl} onChange={(e) => setVUrl(e.target.value)} placeholder="API URL" className="h-7 text-xs" />
-                    <Input value={vModel} onChange={(e) => setVModel(e.target.value)} placeholder="模型 ID" className="h-7 text-xs" />
-                    <Input type="password" value={vKey} onChange={(e) => setVKey(e.target.value)} placeholder="API Key（本机可空）" className="h-7 text-xs" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium">辅助交叉核对 OCR（数字/单位标黄）</span>
-                <Select
-                  value={oMode}
-                  onValueChange={(v) => setOMode(v as 'off' | 'vision-model' | 'http-ocr')}
-                  className="w-full"
-                  options={[
-                    { value: 'off', label: '关闭（单路轻模式，封顶 82%）' },
-                    { value: 'http-ocr', label: '本机/HTTP OCR（Pix2Text / PaddleOCR）' },
-                    { value: 'vision-model', label: '独立视觉 OCR 模型' },
-                  ]}
-                />
-                {oMode !== 'off' && (
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <Input
-                      value={oUrl}
-                      onChange={(e) => setOUrl(e.target.value)}
-                      placeholder={oMode === 'http-ocr' ? 'http://127.0.0.1:8500/ocr' : 'API URL'}
-                      className="h-7 text-xs"
-                    />
-                    {oMode === 'vision-model' && (
-                      <Input value={oModel} onChange={(e) => setOModel(e.target.value)} placeholder="OCR 模型 ID" className="h-7 text-xs" />
-                    )}
-                    <Input type="password" value={oKey} onChange={(e) => setOKey(e.target.value)} placeholder="Key（本机免填）" className="h-7 text-xs" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-medium">物理题库增强公式 OCR：Doc2X（可选）</div>
-                  <div className="text-[11px] text-[var(--ink-muted)]">
-                    题库默认直接复用上方视觉模型转写公式；如需 Doc2X 专业版面解析，可在此按需开启（绝不自动上传）
-                  </div>
-                </div>
-                <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={d2xEnabled}
-                    onChange={(e) => setD2xEnabled(e.target.checked)}
-                    className="accent-[var(--accent)]"
-                  />
-                  启用 Doc2X
-                </label>
-              </div>
-              {d2xEnabled && (
-                <Input
-                  type="password"
-                  value={d2xKey}
-                  onChange={(e) => setD2xKey(e.target.value)}
-                  placeholder={aiView?.doc2x?.hasKey ? '••••••••（已加密记住 Doc2X Key，留空保持不变）' : 'sk-...（Doc2X API Key）'}
-                  className="h-8 text-xs"
-                />
-              )}
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <Button variant="primary" disabled={saving} onClick={() => void saveAiConfig()}>
-                {saving ? '加密保存中…' : '保存并加密记住配置'}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
+      {tab === 'ai' && <AiSettingsTab open={open} onNotify={onNotify} />}
 
       {/* TAB 3: Obsidian-Style Local Vault */}
       {tab === 'vault' && vaultInfo && (

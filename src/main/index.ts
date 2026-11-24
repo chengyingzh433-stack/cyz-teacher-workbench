@@ -169,6 +169,12 @@ if (!gotLock) {
           mainWindow.webContents.send('zhixue:state', state);
         }
       },
+      userData,
+      () => {
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send('zhixue:escape');
+        }
+      },
     );
 
     // Custom safe protocol for local Vault photos + WebP sprite sheets

@@ -215,8 +215,8 @@ export function CommandPalette({
                 >
                   <BookOpenText className="w-4 h-4" /> 前往「带班工作台 · 德育安全素材库与备忘」
                 </Command.Item>
-                <Command.Item value="智学网 网阅伴侣 zhixue" onSelect={() => run(() => onSelectSpace('zhixue'))}>
-                  <Globe className="w-4 h-4" /> 打开「智学网 / 网阅伴侣」
+                <Command.Item value="智学网 网阅伴侣 AI 阅卷 zhixue" onSelect={() => run(() => onSelectSpace('zhixue'))}>
+                  <Globe className="w-4 h-4" /> 打开「智学网伴侣 · AI 网阅中心」
                 </Command.Item>
                 <Command.Item value="设置 AI 钥匙串 资料库 settings" onSelect={() => run(onOpenSettings)}>
                   <Settings className="w-4 h-4" /> 打开「设置（主题 / AI / 资料库）」

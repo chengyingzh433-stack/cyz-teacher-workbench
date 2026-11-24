@@ -38,6 +38,23 @@ export function registerIpcHandlers(deps: {
   const { vault, keychain, aiProxy, zhixue, getWindow, onThemeChanged } = deps;
   const db = () => vault.getDb();
 
+  // Safe external HTTPS link opener (for AI provider consoles / docs)
+  ipcMain.handle(
+    'app:openExternal',
+    wrap(async (rawUrl: string) => {
+      let parsed: URL;
+      try {
+        parsed = new URL(String(rawUrl || '').trim());
+      } catch {
+        throw new Error('无效的外部链接地址');
+      }
+      if (parsed.protocol !== 'https:') {
+        throw new Error('仅允许使用系统浏览器打开 HTTPS 安全链接');
+      }
+      await shell.openExternal(parsed.toString());
+    }),
+  );
+
   // Vault & Preferences
   ipcMain.handle('vault:getInfo', wrap(() => vault.getInfo()));
   ipcMain.handle('vault:getPreferences', wrap(() => vault.getPreferences()));
@@ -211,7 +228,12 @@ export function registerIpcHandlers(deps: {
   ipcMain.handle(
     'ai:runScoring',
     wrap((p) => {
-      const rubric = gradingRepo.getRubricById(db(), p.rubricId);
+      const rubric = p.inlineRubric
+        ? p.inlineRubric
+        : p.rubricId
+          ? gradingRepo.getRubricById(db(), p.rubricId)
+          : null;
+      if (!rubric) throw new Error('请先配置本题评分细则再执行 AI 判分');
       return runScoringStage(aiProxy, {
         scan: p.scan,
         scanText: p.scanText,
@@ -304,6 +326,17 @@ export function registerIpcHandlers(deps: {
   ipcMain.handle('zhixue:goForward', wrap(() => zhixue.goForward()));
   ipcMain.handle('zhixue:reload', wrap(() => zhixue.reload()));
   ipcMain.handle('zhixue:captureRegion', wrap((rect) => zhixue.captureRegion(rect)));
+  ipcMain.handle('zhixue:getSiteProfile', wrap((url) => zhixue.getSiteProfile(url)));
+  ipcMain.handle('zhixue:saveSiteProfile', wrap((patch) => zhixue.saveSiteProfile(patch)));
+  ipcMain.handle('zhixue:pickRegion', wrap(() => zhixue.pickRegion()));
+  ipcMain.handle('zhixue:cancelPickRegion', wrap(() => zhixue.cancelPickRegion()));
+  ipcMain.handle('zhixue:setRoiHighlight', wrap((rect, visible) => zhixue.setRoiHighlight(rect, visible)));
+  ipcMain.handle('zhixue:crawlControls', wrap((hints) => zhixue.crawlControls(hints)));
+  ipcMain.handle('zhixue:pickElement', wrap((role) => zhixue.pickElement(role)));
+  ipcMain.handle('zhixue:cancelPickElement', wrap(() => zhixue.cancelPickElement()));
+  ipcMain.handle('zhixue:applyScore', wrap((params) => zhixue.applyScore(params)));
+  ipcMain.handle('zhixue:markPaperBaseline', wrap((rect) => zhixue.markPaperBaseline(rect)));
+  ipcMain.handle('zhixue:checkPaperChanged', wrap((rect) => zhixue.checkPaperChanged(rect)));
   ipcMain.handle('zhixue:fillScore', wrap((score, hint) => zhixue.fillScore(score, hint)));
 
   // Physics Question Bank (isolated <vault>/question-bank/ sub-DB)

@@ -27,6 +27,7 @@ import type {
   KnowledgeStatRow,
   PhotoAsset,
   RemoteModelInfo,
+  Rubric,
   SavedMaterialRecord,
   ScoreSeatingStrategy,
   ScoreStatus,
@@ -39,6 +40,11 @@ import type {
   TeacherProfile,
   TrashItem,
   VaultInfo,
+  ZhixueApplyScoreResult,
+  ZhixueCrawledControls,
+  ZhixuePaperChangeResult,
+  ZhixueRoiRect,
+  ZhixueSiteProfile,
   ZhixueState,
 } from './types';
 import type { TableBook, TableMapping } from './gradebook/table';
@@ -124,6 +130,7 @@ export interface SaveGradingItemPayload {
 export interface WorkbenchApi {
   platform: string;
   appVersion: string;
+  openExternal: (url: string) => Promise<void>;
 
   // Vault & Preferences
   vault: {
@@ -277,7 +284,8 @@ export interface WorkbenchApi {
     runScoring: (params: {
       scan: Stage1ScanResult;
       scanText: string;
-      rubricId: string;
+      rubricId?: string;
+      inlineRubric?: Rubric;
       itemPrompt: string;
       threshold: number;
     }) => Promise<GradingResult>;
@@ -396,13 +404,34 @@ export interface WorkbenchApi {
     goBack: () => Promise<ZhixueState>;
     goForward: () => Promise<ZhixueState>;
     reload: () => Promise<ZhixueState>;
-    captureRegion: (rect?: { x: number; y: number; width: number; height: number }) => Promise<{
+    captureRegion: (rect?: ZhixueRoiRect) => Promise<{
       dataUrl: string;
       width: number;
       height: number;
     }>;
+    getSiteProfile: (url?: string) => Promise<ZhixueSiteProfile>;
+    saveSiteProfile: (patch: Partial<ZhixueSiteProfile> & { url?: string }) => Promise<ZhixueSiteProfile>;
+    pickRegion: () => Promise<ZhixueRoiRect | null>;
+    cancelPickRegion: () => Promise<void>;
+    setRoiHighlight: (rect: ZhixueRoiRect | null, visible: boolean) => Promise<void>;
+    crawlControls: (hints?: {
+      scoreGroupSelector?: string;
+      submitSelector?: string;
+    }) => Promise<ZhixueCrawledControls>;
+    pickElement: (role: 'score-group' | 'submit') => Promise<{ selector: string; label: string } | null>;
+    cancelPickElement: () => Promise<void>;
+    applyScore: (params: {
+      scoreText: string;
+      optionId?: string;
+      autoSubmit?: boolean;
+      scoreGroupSelector?: string;
+      submitSelector?: string;
+    }) => Promise<ZhixueApplyScoreResult>;
+    markPaperBaseline: (rect?: ZhixueRoiRect) => Promise<void>;
+    checkPaperChanged: (rect?: ZhixueRoiRect) => Promise<ZhixuePaperChangeResult>;
     fillScore: (scoreText: string, selectorHint?: string) => Promise<{ ok: boolean; detail: string }>;
     onStateChange: (cb: (state: ZhixueState) => void) => () => void;
+    onEscapePressed: (cb: () => void) => () => void;
   };
 
   // Physics Question Bank (物理题库)

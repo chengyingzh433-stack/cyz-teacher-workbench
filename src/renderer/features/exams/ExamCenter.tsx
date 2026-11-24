@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type * as echarts from 'echarts';
 import {
-  BarChart3,
+  ArrowLeft,
   ClipboardCheck,
   FileSpreadsheet,
+  Globe,
   Plus,
   Trash2,
   TrendingUp,
@@ -37,6 +38,7 @@ export function ExamCenter({
   onRefreshAll,
   onOpenStudentProfile,
   onOpenAiSettings,
+  onOpenZhixue,
   onNotify,
 }: {
   cls: ClassRecord;
@@ -48,6 +50,7 @@ export function ExamCenter({
   onRefreshAll: () => Promise<void>;
   onOpenStudentProfile: (membershipId: string) => void;
   onOpenAiSettings: () => void;
+  onOpenZhixue?: () => void;
   onNotify: (msg: string, tone?: 'ok' | 'err') => void;
 }) {
   const [detail, setDetail] = useState<ExamDetail | null>(null);
@@ -161,37 +164,33 @@ export function ExamCenter({
           <span className="text-sm font-medium text-[var(--ink-muted)]">本班尚无考试记录</span>
         )}
 
-        {activeExam && (
-          <div className="inline-flex p-0.5 rounded-lg bg-[var(--bg-muted)] gap-0.5">
-            <button
-              type="button"
-              onClick={() => setSubTab('analytics')}
-              className={`px-3 py-1 rounded-md text-[12.5px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
-                subTab === 'analytics'
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> 成绩分析与明细
-            </button>
-            <button
-              type="button"
-              onClick={() => setSubTab('grading')}
-              className={`px-3 py-1 rounded-md text-[12.5px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
-                subTab === 'grading'
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-            >
-              <ClipboardCheck className="w-3.5 h-3.5" /> 手写阅卷与讲评
-              {detail && detail.gradingItems.length > 0 && (
-                <Badge tone="accent">{detail.gradingItems.length}</Badge>
-              )}
-            </button>
-          </div>
+        {activeExam && subTab === 'grading' && (
+          <Button size="sm" variant="soft" onClick={() => setSubTab('analytics')}>
+            <ArrowLeft className="w-4 h-4" /> 返回成绩分析
+          </Button>
         )}
 
         <div className="flex-1" />
+
+        {onOpenZhixue && (
+          <Button size="sm" variant="soft" onClick={onOpenZhixue} title="前往智学网伴侣使用内置浏览器 AI 阅卷">
+            <Globe className="w-4 h-4" /> 智学网 AI 阅卷
+          </Button>
+        )}
+
+        {activeExam && subTab === 'analytics' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title="离线拍照上传答卷与知识点讲评（折叠入口）"
+            onClick={() => setSubTab('grading')}
+          >
+            <ClipboardCheck className="w-4 h-4" /> 离线拍照阅卷
+            {detail && detail.gradingItems.length > 0 && (
+              <Badge tone="neutral">{detail.gradingItems.length}</Badge>
+            )}
+          </Button>
+        )}
 
         {trends.length >= 2 && (
           <Button
@@ -256,10 +255,10 @@ export function ExamCenter({
           <div>
             <h3 className="text-base font-semibold">欢迎来到统一考试中心</h3>
             <p className="text-sm text-[var(--ink-muted)] max-w-md mt-1">
-              导入 Excel / CSV 成绩表立即生成专业分数段交互图表，或新建考试挂载手写主观题进行 AI 辅助批阅——阅卷得分自动回填本场成绩总表！
+              导入 Excel / CSV 成绩表即可生成分数段交互直方图、多考走势对比与 AI 学情助教问答；在线网阅请前往左侧「智学网伴侣」。
             </p>
           </div>
-          <div className="flex gap-2.5">
+          <div className="flex gap-2.5 flex-wrap justify-center">
             <Button
               variant="primary"
               disabled={readonly}
@@ -270,8 +269,13 @@ export function ExamCenter({
             >
               <FileSpreadsheet className="w-4 h-4" /> 导入 Excel / CSV 成绩单
             </Button>
-            <Button disabled={readonly} onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4" /> 新建主观题阅卷考试
+            {onOpenZhixue && (
+              <Button variant="soft" onClick={onOpenZhixue}>
+                <Globe className="w-4 h-4" /> 前往智学网 AI 阅卷
+              </Button>
+            )}
+            <Button variant="ghost" disabled={readonly} onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4" /> 新建空白考试
             </Button>
           </div>
         </Card>
@@ -322,7 +326,7 @@ export function ExamCenter({
         onExamCreated={async (createdId) => {
           await onRefreshAll();
           onSelectExam(createdId);
-          setSubTab('grading');
+          setSubTab('analytics');
         }}
         editCell={editCell}
         onEditCellChange={setEditCell}

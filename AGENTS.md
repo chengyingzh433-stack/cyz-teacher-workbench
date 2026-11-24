@@ -15,4 +15,4 @@
 | macOS 原生 `vibrancy` 浅色真透明层禁止叠加 `backdrop-filter: saturate(>100%)`（避免 Skia 预乘色带） | `tests/themes.test.ts` 自动拦截 + 实机截屏人工核验 |
 | Windows 便携包必须显式构建 `x64` 架构（禁止在 Apple Silicon Mac 上误打成 `win-arm64`） | `package.json` `"pack:win"` 固定 `--win zip --x64` |
 | API Key 绝不得明文落盘或写入可共享的 Vault 资料库目录 | `tests/vault-sqlite.test.ts` Keychain 测试 |
-| 智学网伴侣保持独立净室实现，绝不复制 GPL-3.0 外部源码，绝不自动盲点提交 | 人工审查 `src/main/zhixue-view.ts` 与 `ZhixueCompanion.tsx` |
+| 智学网伴侣保持独立净室实现，绝不复制 GPL-3.0 外部源码；自动模式仅在置信度达标且零红线/零 OCR 冲突时经可自选间隔且按 Esc 急停的倒计时提交，严禁无拦截盲交 | 人工审查 `src/main/zhixue-view.ts` 与 `ZhixueCompanion.tsx` + E2E 实测 |
