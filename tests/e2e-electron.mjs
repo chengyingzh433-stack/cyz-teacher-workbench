@@ -271,8 +271,17 @@ app.on('browser-window-created', (_ev, win) => {
       assert.equal(seatCount, 40, 'Demo 5x8 classroom should render 40 seat cells');
       await saveShot(win, '02-demo-classroom.png');
 
-      // Step 3: Settings -> Theme Gallery -> assert all 7 preset theme cards present
+      // Step 3: Settings -> Theme Gallery -> assert all 7 preset theme cards + in-app version display present
+      const expectedVersion = 'v' + JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).version;
+      const sidebarHasVersion = await win.webContents.executeJavaScript(
+        `(document.querySelector('aside')?.innerText || '').includes(${JSON.stringify(expectedVersion)})`,
+      );
+      assert.equal(sidebarHasVersion, true, `Sidebar footer must show app version ${expectedVersion}`);
       await openSettingsThemeTab(win);
+      const settingsHasVersion = await win.webContents.executeJavaScript(
+        `(document.querySelector('[role="dialog"]')?.innerText || '').includes(${JSON.stringify(expectedVersion)})`,
+      );
+      assert.equal(settingsHasVersion, true, `Settings modal must show app version ${expectedVersion}`);
       const themeNames = [
         '现代暖白工作室',
         '深夜护眼工作室',

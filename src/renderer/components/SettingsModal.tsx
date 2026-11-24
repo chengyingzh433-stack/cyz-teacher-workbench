@@ -47,7 +47,7 @@ export function SettingsModal({
       open={open}
       onOpenChange={onOpenChange}
       title="工作台设置"
-      subtitle="外观主题引擎 · 系统钥匙串 AI 连接 · Obsidian 式本地资料库"
+      subtitle={`当前版本 v${window.workbenchApi.appVersion} · 外观主题引擎 · 系统钥匙串 AI 连接 · 本地资料库`}
       size="lg"
     >
       <div className="flex gap-1.5 mb-4 p-1 rounded-xl bg-[var(--bg-muted)]">
@@ -268,6 +268,20 @@ export function SettingsModal({
               </Button>
             </div>
           </Card>
+          <Card className="p-3.5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[13px] font-semibold">cyz 的教师工作台</span>
+              <Badge tone="accent">v{window.workbenchApi.appVersion}</Badge>
+              <Badge tone="neutral">
+                {window.workbenchApi.platform === 'darwin' ? 'macOS 桌面端' : 'Windows 桌面端'}
+              </Badge>
+              <Badge tone="neutral">资料库 Schema v{vaultInfo.schemaVersion}</Badge>
+            </div>
+            <span className="text-[11.5px] text-[var(--ink-muted)]">
+              Electron + 原生 SQLite 离线资料库
+            </span>
+          </Card>
+
           <p className="text-xs text-[var(--ink-muted)] leading-relaxed">
             提示：本资料库由 <code>workbench.sqlite</code>、<code>photos/</code> 与 <code>question-bank/</code>（物理题库独立子库与素材）组成，可直接拷入 U 盘或放进 iCloud / 坚果云同步。API 密钥独立加密保存在本机系统钥匙串中，同步资料库绝不会泄露密钥。
           </p>

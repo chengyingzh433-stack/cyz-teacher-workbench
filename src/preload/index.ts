@@ -2,9 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { WorkbenchApi } from '../shared/ipc';
 import type { ZhixueState } from '../shared/types';
 
+declare const __APP_VERSION__: string;
+
 const api: WorkbenchApi = {
   platform: process.platform,
-  appVersion: '1.3.0',
+  appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.3.1',
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 
   vault: {

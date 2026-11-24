@@ -391,7 +391,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={() => onOpenSettings('ai')}
-            title="AI 模型、钥匙串与主题设置"
+            title={`AI 模型、钥匙串与主题设置（v${window.workbenchApi.appVersion}）`}
             className={`flex-1 flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12.5px] text-[var(--ink-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer ${
               collapsed ? 'justify-center w-full' : ''
             }`}
@@ -414,6 +414,18 @@ export function Sidebar({
             {getTheme(themeId).isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
         </div>
+
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() => onOpenSettings('vault')}
+            title="点击查看当前软件版本与本地资料库详情"
+            className="w-full px-2.5 pt-1 text-[10.5px] text-[var(--ink-muted)] hover:text-[var(--ink-secondary)] flex items-center justify-between cursor-pointer transition-colors"
+          >
+            <span>cyz 的教师工作台</span>
+            <span className="tabular-nums font-medium">v{window.workbenchApi.appVersion}</span>
+          </button>
+        )}
       </div>
     </aside>
   );
