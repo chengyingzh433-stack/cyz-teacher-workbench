@@ -4,6 +4,7 @@ import { utils, write } from 'xlsx';
 import {
   gradeSourceRows,
   inferMapping,
+  normalizeColumnLabel,
   scoreValue,
   sourceClasses,
 } from '../src/shared/gradebook/recognize';
@@ -83,4 +84,28 @@ test('P0 成绩单识别：多行表头忽略年排，合并班名正确识别�
     assert.equal(autoExcluded.length, 1);
     assert.equal(autoExcluded[0].automaticExclusion, '识别为汇总/说明行');
   }
+});
+
+test('成绩单识别：自动识别性别列与规范化科目名（用于同考覆盖对齐）', () => {
+  const wb = utils.book_new();
+  const ws = utils.aoa_to_sheet([
+    ['姓名', '学号', '性别', '物理(100分)', '总分'],
+    ['张一', '5401', '男', 91, 610],
+    ['李二', '5402', '女', 86, 598],
+  ]);
+  utils.book_append_sheet(wb, ws, 'Sheet1');
+  const bytes = new Uint8Array(write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  const [sheet] = parseGradeWorkbook(bytes, '54班月考.xlsx', 'utf-8').sheets;
+  const mapping = inferMapping(sheet);
+  assert.deepEqual(
+    mapping.columns.map((c) => c.role),
+    ['name', 'number', 'gender', 'score', 'total'],
+  );
+  const rows = gradeSourceRows(sheet, mapping);
+  assert.deepEqual(
+    rows.map((r) => r.gender),
+    ['male', 'female'],
+  );
+  assert.equal(normalizeColumnLabel('物理(100分)'), normalizeColumnLabel('物理'));
+  assert.equal(normalizeColumnLabel('物理（满分:100）'), normalizeColumnLabel('物理'));
 });

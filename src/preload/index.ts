@@ -1,12 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { WorkbenchApi } from '../shared/ipc';
-import type { ZhixueState } from '../shared/types';
+import type { UpdateState, ZhixueState } from '../shared/types';
 
 declare const __APP_VERSION__: string;
 
 const api: WorkbenchApi = {
   platform: process.platform,
-  appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.3.1',
+  appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.4.0',
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 
   vault: {
@@ -17,6 +17,20 @@ const api: WorkbenchApi = {
     switchVault: (dirPath) => ipcRenderer.invoke('vault:switchVault', dirPath),
     openInFinder: () => ipcRenderer.invoke('vault:openInFinder'),
     exportSnapshot: () => ipcRenderer.invoke('vault:exportSnapshot'),
+    resetCurrent: () => ipcRenderer.invoke('vault:resetCurrent'),
+  },
+
+  updater: {
+    getState: () => ipcRenderer.invoke('updater:getState'),
+    check: (silent) => ipcRenderer.invoke('updater:check', silent),
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    openDownload: () => ipcRenderer.invoke('updater:openDownload'),
+    onStateChange: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: UpdateState) => cb(state);
+      ipcRenderer.on('updater:status', listener);
+      return () => ipcRenderer.removeListener('updater:status', listener);
+    },
   },
 
   teacher: {
@@ -61,6 +75,7 @@ const api: WorkbenchApi = {
     softDelete: (examId) => ipcRenderer.invoke('exams:softDelete', examId),
     parseWorkbook: (payload) => ipcRenderer.invoke('exams:parseWorkbook', payload),
     commitImport: (payload) => ipcRenderer.invoke('exams:commitImport', payload),
+    quickRecordScore: (payload) => ipcRenderer.invoke('exams:quickRecordScore', payload),
     updateScoreCell: (payload) => ipcRenderer.invoke('exams:updateScoreCell', payload),
     getClassTrends: (classId, subjectHint) =>
       ipcRenderer.invoke('exams:getClassTrends', classId, subjectHint),

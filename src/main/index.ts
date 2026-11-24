@@ -8,9 +8,12 @@ import { VaultManager } from './vault';
 import { AiKeychainStore } from './keychain';
 import { MainAiProxy } from './ai-proxy';
 import { ZhixueCompanionManager } from './zhixue-view';
+import { AppUpdater } from './updater';
 import { resolveSafePhotoPath } from './photo-store';
 import { resolveSafeQbankPath } from './question-bank/assets';
 import { registerIpcHandlers } from './ipc-handlers';
+
+declare const __APP_VERSION__: string;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -206,16 +209,37 @@ if (!gotLock) {
       }
     });
 
+    const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : app.getVersion();
+    const updater = new AppUpdater(
+      userData,
+      appVersion,
+      () => vault?.getPreferences().updateMirrorUrl || '',
+      (state) => {
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send('updater:status', state);
+        }
+      },
+      () => app.quit(),
+    );
+
     registerIpcHandlers({
       vault,
       keychain,
       aiProxy,
       zhixue,
+      updater,
       getWindow: () => mainWindow,
       onThemeChanged: (themeId) => applyWindowTheme(mainWindow, themeId),
     });
 
     createWindow(vault.getPreferences().themeId);
+
+    // Silent background update check after window settles (only in packaged builds or explicit E2E update endpoint)
+    if ((app.isPackaged || process.env.CYZ_UPDATE_API_URL) && process.env.CYZ_DISABLE_STARTUP_UPDATE !== '1') {
+      setTimeout(() => {
+        void updater.checkForUpdates({ silent: true });
+      }, 4500);
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

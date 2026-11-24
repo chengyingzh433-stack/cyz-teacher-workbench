@@ -14,7 +14,7 @@ export type TableSheet = {
 
 export type TableBook = { sheets: TableSheet[] };
 
-export type ColumnRole = 'ignore' | 'name' | 'number' | 'class' | 'score' | 'total';
+export type ColumnRole = 'ignore' | 'name' | 'number' | 'class' | 'gender' | 'score' | 'total';
 
 export type ColumnMapping = {
   index: number;

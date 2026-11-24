@@ -15,7 +15,14 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import type { ClassRecord, NavSpace, PinnableSpace, TeacherProfile, VaultInfo } from '../../shared/types';
+import type {
+  ClassRecord,
+  NavSpace,
+  PinnableSpace,
+  TeacherProfile,
+  UpdateState,
+  VaultInfo,
+} from '../../shared/types';
 import { getTheme } from '../themes';
 import { Avatar } from '../features/classroom/SpriteArt';
 
@@ -32,6 +39,7 @@ export function Sidebar({
   trashCount,
   homeroomBadge,
   vaultInfo,
+  updateState,
   onToggleCollapse,
   onOpenTeacher,
   onSelectClass,
@@ -54,6 +62,7 @@ export function Sidebar({
   trashCount: number;
   homeroomBadge?: number;
   vaultInfo: VaultInfo | null;
+  updateState?: UpdateState | null;
   onToggleCollapse: () => void;
   onOpenTeacher: () => void;
   onSelectClass: (id: string) => void;
@@ -419,11 +428,20 @@ export function Sidebar({
           <button
             type="button"
             onClick={() => onOpenSettings('vault')}
-            title="点击查看当前软件版本与本地资料库详情"
-            className="w-full px-2.5 pt-1 text-[10.5px] text-[var(--ink-muted)] hover:text-[var(--ink-secondary)] flex items-center justify-between cursor-pointer transition-colors"
+            title="点击查看当前软件版本、检查在线更新与本地资料库详情"
+            className="w-full px-2.5 pt-1 text-[10.5px] text-[var(--ink-muted)] hover:text-[var(--ink-secondary)] flex items-center justify-between gap-1.5 cursor-pointer transition-colors"
           >
-            <span>cyz 的教师工作台</span>
-            <span className="tabular-nums font-medium">v{window.workbenchApi.appVersion}</span>
+            <span className="truncate">cyz 的教师工作台</span>
+            <span className="inline-flex items-center gap-1 shrink-0">
+              {(updateState?.phase === 'available' || updateState?.phase === 'ready') && (
+                <span className="px-1.5 py-0.2 rounded-full bg-[var(--accent)] text-[var(--accent-ink)] text-[9.5px] font-semibold">
+                  {updateState.phase === 'ready'
+                    ? '可重启更新'
+                    : `新 v${updateState.latestVersion || ''}`}
+                </span>
+              )}
+              <span className="tabular-nums font-medium">v{window.workbenchApi.appVersion}</span>
+            </span>
           </button>
         )}
       </div>

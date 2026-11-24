@@ -8,6 +8,7 @@ import type { VaultManager } from './vault';
 import type { AiKeychainStore } from './keychain';
 import type { MainAiProxy } from './ai-proxy';
 import type { ZhixueCompanionManager } from './zhixue-view';
+import type { AppUpdater } from './updater';
 import * as classesRepo from './repositories/classes';
 import * as seatingRepo from './repositories/seating';
 import * as examsRepo from './repositories/exams';
@@ -32,10 +33,11 @@ export function registerIpcHandlers(deps: {
   keychain: AiKeychainStore;
   aiProxy: MainAiProxy;
   zhixue: ZhixueCompanionManager;
+  updater: AppUpdater;
   getWindow: () => BrowserWindow | null;
   onThemeChanged?: (themeId: string) => void;
 }) {
-  const { vault, keychain, aiProxy, zhixue, getWindow, onThemeChanged } = deps;
+  const { vault, keychain, aiProxy, zhixue, updater, getWindow, onThemeChanged } = deps;
   const db = () => vault.getDb();
 
   // Safe external HTTPS link opener (for AI provider consoles / docs)
@@ -95,6 +97,14 @@ export function registerIpcHandlers(deps: {
       return { path: exported };
     }),
   );
+  ipcMain.handle('vault:resetCurrent', wrap(() => vault.resetCurrent()));
+
+  // Auto-Updater (GitHub Releases)
+  ipcMain.handle('updater:getState', wrap(() => updater.getState()));
+  ipcMain.handle('updater:check', wrap((silent?: boolean) => updater.checkForUpdates({ silent })));
+  ipcMain.handle('updater:download', wrap(() => updater.downloadUpdate()));
+  ipcMain.handle('updater:install', wrap(() => updater.installAndRestart()));
+  ipcMain.handle('updater:openDownload', wrap(() => updater.openDownloadedItem()));
 
   // Teacher
   ipcMain.handle('teacher:get', wrap(() => classesRepo.getTeacher(db())));
@@ -149,6 +159,7 @@ export function registerIpcHandlers(deps: {
     }),
   );
   ipcMain.handle('exams:commitImport', wrap((payload) => examsRepo.commitGradeImport(db(), payload)));
+  ipcMain.handle('exams:quickRecordScore', wrap((payload) => examsRepo.quickRecordExamScore(db(), payload)));
   ipcMain.handle('exams:updateScoreCell', wrap((payload) => examsRepo.updateScoreCell(db(), payload)));
   ipcMain.handle('exams:getClassTrends', wrap((cid, hint) => examsRepo.getClassTrends(db(), cid, hint)));
   ipcMain.handle(

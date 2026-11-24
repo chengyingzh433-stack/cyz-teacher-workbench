@@ -39,6 +39,7 @@ import type {
   StudentMember,
   TeacherProfile,
   TrashItem,
+  UpdateState,
   VaultInfo,
   ZhixueApplyScoreResult,
   ZhixueCrawledControls,
@@ -89,6 +90,7 @@ export interface CommitGradeImportPayload {
   examDate: string;
   notes?: string;
   sourceFile: string;
+  autoSeatNewStudents?: boolean;
   columns: Array<{
     key: string;
     label: string;
@@ -97,7 +99,9 @@ export interface CommitGradeImportPayload {
   }>;
   rows: Array<{
     membershipId?: string;
-    createStudent?: { name: string; rosterNo: string };
+    restoreIfRemoved?: boolean;
+    updateRosterNo?: string;
+    createStudent?: { name: string; rosterNo: string; gender?: 'male' | 'female' | 'unspecified' };
     cells: Array<{
       columnKey: string;
       status: ScoreStatus;
@@ -107,6 +111,19 @@ export interface CommitGradeImportPayload {
       fromFormula: boolean;
     }>;
   }>;
+}
+
+export interface QuickRecordExamScorePayload {
+  examId: string;
+  columnId?: string;
+  newColumn?: { label: string; maxUnits: number | null; role?: 'score' | 'total' };
+  membershipId?: string;
+  restoreIfRemoved?: boolean;
+  createStudent?: { name: string; rosterNo?: string; gender?: 'male' | 'female' | 'unspecified' };
+  autoSeat?: boolean;
+  status: ScoreStatus;
+  units: number | null;
+  reason?: string;
 }
 
 export interface SaveGradingItemPayload {
@@ -141,6 +158,17 @@ export interface WorkbenchApi {
     switchVault: (dirPath: string) => Promise<VaultInfo>;
     openInFinder: () => Promise<void>;
     exportSnapshot: () => Promise<{ path: string } | null>;
+    resetCurrent: () => Promise<VaultInfo>;
+  };
+
+  // GitHub Release Auto-Updater
+  updater: {
+    getState: () => Promise<UpdateState>;
+    check: (silent?: boolean) => Promise<UpdateState>;
+    download: () => Promise<UpdateState>;
+    install: () => Promise<{ mode: 'relaunching' | 'opened-installer' }>;
+    openDownload: () => Promise<void>;
+    onStateChange: (cb: (state: UpdateState) => void) => () => void;
   };
 
   // Teacher profile
@@ -194,6 +222,11 @@ export interface WorkbenchApi {
       inferred: TableMapping;
     }>;
     commitImport: (payload: CommitGradeImportPayload) => Promise<ExamSummary>;
+    quickRecordScore: (payload: QuickRecordExamScorePayload) => Promise<{
+      detail: ExamDetail;
+      createdStudent: StudentMember | null;
+      seated: boolean;
+    }>;
     updateScoreCell: (payload: {
       examId: string;
       columnId: string;

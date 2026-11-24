@@ -59,6 +59,7 @@ export class VaultManager {
       sidebarCollapsed: false,
       recentVaults: [],
       pinnedSpaces: [...DEFAULT_PINNED_SPACES],
+      updateMirrorUrl: '',
     };
     try {
       if (!fs.existsSync(this.prefsPath)) return fallback;
@@ -73,6 +74,8 @@ export class VaultManager {
           : [],
         pinnedSpaces:
           parsed.pinnedSpaces !== undefined ? sanitizePinnedSpaces(parsed.pinnedSpaces) : [...DEFAULT_PINNED_SPACES],
+        updateMirrorUrl:
+          typeof parsed.updateMirrorUrl === 'string' ? parsed.updateMirrorUrl.trim().slice(0, 240) : '',
       };
     } catch {
       return fallback;
@@ -97,6 +100,9 @@ export class VaultManager {
       ...(patch.themeId ? { themeId: patch.themeId } : {}),
       ...(patch.sidebarCollapsed !== undefined ? { sidebarCollapsed: patch.sidebarCollapsed } : {}),
       ...(patch.pinnedSpaces !== undefined ? { pinnedSpaces: sanitizePinnedSpaces(patch.pinnedSpaces) } : {}),
+      ...(patch.updateMirrorUrl !== undefined
+        ? { updateMirrorUrl: String(patch.updateMirrorUrl || '').trim().slice(0, 240) }
+        : {}),
     };
     this.savePrefs();
     return this.getPreferences();
@@ -232,6 +238,28 @@ export class VaultManager {
       fs.cpSync(qbankSrc, path.join(target, 'question-bank'), { recursive: true });
     }
     return target;
+  }
+
+  /** Safely clears all workbench data inside the active Vault folder and recreates a clean empty Vault (never touches OS Keychain / API keys). */
+  resetCurrent(): VaultInfo {
+    const target = this.getPath();
+    this.close();
+    const wipeTargets = [
+      'workbench.sqlite',
+      'workbench.sqlite-wal',
+      'workbench.sqlite-shm',
+      'vault.json',
+      'photos',
+      'question-bank',
+    ];
+    for (const rel of wipeTargets) {
+      const full = path.join(target, rel);
+      if (fs.existsSync(full)) {
+        fs.rmSync(full, { recursive: true, force: true });
+      }
+    }
+    this.vaultPath = '';
+    return this.open(target);
   }
 
   close() {

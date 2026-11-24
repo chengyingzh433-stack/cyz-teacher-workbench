@@ -68,6 +68,38 @@ export interface AppPreferences {
   sidebarCollapsed: boolean;
   recentVaults: string[];
   pinnedSpaces: PinnableSpace[];
+  updateMirrorUrl?: string;
+}
+
+export type UpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'verifying'
+  | 'ready'
+  | 'installing'
+  | 'error';
+
+export interface UpdateState {
+  phase: UpdatePhase;
+  currentVersion: string;
+  latestVersion: string | null;
+  releaseName: string | null;
+  releaseNotes: string;
+  releaseUrl: string;
+  publishedAt: string | null;
+  assetName: string | null;
+  assetSize: number;
+  downloadedBytes: number;
+  progressPct: number;
+  sha256Verified: boolean;
+  stagedAppPath: string | null;
+  downloadedFilePath: string | null;
+  canAutoInstall: boolean;
+  checkedAt: string | null;
+  error: string | null;
 }
 
 export interface ClassRecord {

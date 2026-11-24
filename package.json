@@ -1,7 +1,7 @@
 {
   "name": "cyz-teacher-workbench",
   "productName": "cyz的教师工作台",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "面向教师的独立桌面工作台：自适应矢量像素教室、花名册与成长档案、统一考试分析、手写答卷 AI 阅卷与智学网伴侣",
   "private": true,
   "type": "module",

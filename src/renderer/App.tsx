@@ -10,6 +10,7 @@ import {
   type PinnableSpace,
   type StudentMember,
   type TeacherProfile,
+  type UpdateState,
   type VaultInfo,
 } from '../shared/types';
 import { localTodayStr } from '../shared/homeroom-materials';
@@ -46,6 +47,7 @@ export function App() {
   const [pinnedSpaces, setPinnedSpaces] = useState<PinnableSpace[]>(DEFAULT_PINNED_SPACES);
   const [aiReady, setAiReady] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null);
 
   const [teacher, setTeacher] = useState<TeacherProfile>({
     name: '',
@@ -162,6 +164,14 @@ export function App() {
   }, [loadBootstrap]);
 
   useEffect(() => {
+    void window.workbenchApi.updater.getState().then(setUpdateState);
+    const off = window.workbenchApi.updater.onStateChange((next) => {
+      setUpdateState(next);
+    });
+    return () => off();
+  }, []);
+
+  useEffect(() => {
     if (currentClass) {
       void loadClassData(currentClass.id);
     } else {
@@ -237,6 +247,7 @@ export function App() {
             : undefined
         }
         vaultInfo={vaultInfo}
+        updateState={updateState}
         onToggleCollapse={() => void handleToggleCollapse()}
         onOpenTeacher={() => setTeacherOpen(true)}
         onSelectClass={(id) => {
@@ -424,6 +435,7 @@ export function App() {
             <ExamCenter
               cls={currentClass}
               members={activeMembers}
+              allMembers={allMembers}
               exams={exams}
               selectedExamId={selectedExamId}
               themeId={themeId}
@@ -510,6 +522,7 @@ export function App() {
         initialTab={settingsTab}
         themeId={themeId}
         vaultInfo={vaultInfo}
+        updateState={updateState}
         onChangeTheme={(id) => void handleChangeTheme(id)}
         onVaultChanged={async (nextInfo) => {
           setVaultInfo(nextInfo);

@@ -257,3 +257,107 @@ test('嵌套事务 SAVEPOINT：一键演示班 / 批量导入花名册 / 成绩�
     fs.rmSync(vaultDir, { recursive: true, force: true });
   }
 });
+
+test('成绩导入：自动新建学生并入座空位、同考换列序覆盖不重列、快捷录分新建学生与资料库重置', () => {
+  const userData = makeTempDir('cyz-gimp-ud-');
+  const vaultDir = makeTempDir('cyz-gimp-vault-');
+  const vault = new VaultManager(userData);
+  try {
+    vault.open(vaultDir);
+    const db = vault.getDb();
+
+    const cls = classesRepo.createClass(db, {
+      name: '高三54班',
+      school: '实验中学',
+      termLabel: '2026-2027 上学期',
+    });
+
+    // 1. First import into empty class: create 2 new students with gender & auto-seat into default plan
+    const ex1 = examsRepo.commitGradeImport(db, {
+      classId: cls.id,
+      title: '一模统考',
+      examDate: '2026-11-20',
+      sourceFile: '一模统考.xlsx',
+      autoSeatNewStudents: true,
+      columns: [
+        { key: 'col_2', label: '物理(100分)', role: 'score', maxUnits: 10000 },
+        { key: 'col_3', label: '总分', role: 'total', maxUnits: 75000 },
+      ],
+      rows: [
+        {
+          createStudent: { name: '王明', rosterNo: '5401', gender: 'male' },
+          cells: [
+            { columnKey: 'col_2', status: 'score', units: 8200, rawText: '82', correctedText: null, fromFormula: false },
+            { columnKey: 'col_3', status: 'score', units: 60100, rawText: '601', correctedText: null, fromFormula: false },
+          ],
+        },
+        {
+          createStudent: { name: '陈雪', rosterNo: '5402', gender: 'female' },
+          cells: [
+            { columnKey: 'col_2', status: 'score', units: 9000, rawText: '90', correctedText: null, fromFormula: false },
+            { columnKey: 'col_3', status: 'score', units: 63500, rawText: '635', correctedText: null, fromFormula: false },
+          ],
+        },
+      ],
+    });
+    const roster1 = classesRepo.listRoster(db, cls.id);
+    assert.equal(roster1.length, 2);
+    assert.equal(roster1[0].gender, 'male');
+    assert.ok(roster1[0].characterId, 'New student with gender must receive sprite character');
+    const plans1 = seatingRepo.listSeatPlans(db, cls.id);
+    assert.equal(plans1[0].assignments.length, 2, 'New students must be auto-seated when autoSeatNewStudents=true');
+
+    // 2. Overwrite SAME exam with swapped column order & stripped max-score suffix -> must NOT duplicate columns!
+    examsRepo.commitGradeImport(db, {
+      classId: cls.id,
+      examId: ex1.id,
+      title: '一模统考',
+      examDate: '2026-11-20',
+      sourceFile: '一模统考-修正版.xlsx',
+      columns: [
+        { key: 'col_1', label: '总分', role: 'total', maxUnits: null },
+        { key: 'col_2', label: '物理', role: 'score', maxUnits: null },
+      ],
+      rows: [
+        {
+          membershipId: roster1[0].membershipId,
+          cells: [
+            { columnKey: 'col_1', status: 'score', units: 61200, rawText: '612', correctedText: null, fromFormula: false },
+            { columnKey: 'col_2', status: 'score', units: 9300, rawText: '93', correctedText: null, fromFormula: false },
+          ],
+        },
+      ],
+    });
+    const detailAfterOverwrite = examsRepo.getExamDetail(db, ex1.id);
+    assert.equal(detailAfterOverwrite.columns.length, 2, 'Overwriting same exam must match columns by normalized label, not duplicate');
+    const physCol = detailAfterOverwrite.columns.find((c) => c.label.includes('物理'))!;
+    assert.equal(physCol.maxUnits, 10000, 'Preserves existing maxUnits when overwrite sheet omits max');
+    const wangPhys = detailAfterOverwrite.scores.find(
+      (s) => s.membershipId === roster1[0].membershipId && s.columnId === physCol.id,
+    );
+    assert.equal(wangPhys?.units, 9300, 'Student physics score must be overwritten to 93');
+
+    // 3. Quick inline score recording: create a 3rd student & auto-seat into empty slot
+    const quickRes = examsRepo.quickRecordExamScore(db, {
+      examId: ex1.id,
+      columnId: physCol.id,
+      createStudent: { name: '赵新', rosterNo: '5403', gender: 'male' },
+      autoSeat: true,
+      status: 'score',
+      units: 8850,
+    });
+    assert.equal(quickRes.createdStudent?.name, '赵新');
+    assert.equal(quickRes.seated, true);
+    assert.equal(classesRepo.listRoster(db, cls.id).length, 3);
+    assert.equal(seatingRepo.listSeatPlans(db, cls.id)[0].assignments.length, 3);
+
+    // 4. Vault reset clears all classes/exams cleanly
+    const freshInfo = vault.resetCurrent();
+    assert.equal(freshInfo.path, vaultDir);
+    assert.equal(classesRepo.listClasses(vault.getDb()).length, 0);
+  } finally {
+    vault.close();
+    fs.rmSync(userData, { recursive: true, force: true });
+    fs.rmSync(vaultDir, { recursive: true, force: true });
+  }
+});

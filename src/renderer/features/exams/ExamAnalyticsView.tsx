@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type * as echarts from 'echarts';
-import { ArrowUpDown, Bot, Download, History, Search, X } from 'lucide-react';
+import { ArrowUpDown, Bot, Download, History, Search, UserPlus, X } from 'lucide-react';
 import type { ExamDetail, ScoreStatus, StudentMember } from '../../../shared/types';
 import { analyzeExamColumn, bandLabelOf, cellStatusLabels } from '../../../shared/gradebook/analysis';
 import { formatScore } from '../../../shared/score-policy';
@@ -28,6 +28,7 @@ export function ExamAnalyticsView({
   themeId,
   readonly,
   onAppendImport,
+  onOpenQuickScore,
   onOpenTutor,
   onOpenExport,
   onOpenStudentProfile,
@@ -42,6 +43,7 @@ export function ExamAnalyticsView({
   themeId: string;
   readonly: boolean;
   onAppendImport: () => void;
+  onOpenQuickScore: () => void;
   onOpenTutor: () => void;
   onOpenExport: () => void;
   onOpenStudentProfile: (membershipId: string) => void;
@@ -200,8 +202,13 @@ export function ExamAnalyticsView({
             />
           )}
           <Button size="sm" variant="ghost" disabled={readonly} onClick={onAppendImport}>
-            追加导入表格至本场
+            覆盖 / 追加表格至本场
           </Button>
+          {!readonly && (
+            <Button size="sm" variant="soft" onClick={onOpenQuickScore}>
+              <UserPlus className="w-4 h-4" /> 录分 / 加人
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -353,6 +360,11 @@ export function ExamAnalyticsView({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {!readonly && (
+              <Button size="xs" variant="soft" onClick={onOpenQuickScore}>
+                <UserPlus className="w-3.5 h-3.5" /> 录分 / 加人
+              </Button>
+            )}
             <div className="relative w-48">
               <Search className="w-3.5 h-3.5 text-[var(--ink-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <Input

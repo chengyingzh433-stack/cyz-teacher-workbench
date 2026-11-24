@@ -329,6 +329,42 @@ export function ClassroomWorkspace({
           {plan?.assignments.length || 0} 人就座{pending.length > 0 ? ` · ${pending.length} 待排` : ''}
         </Badge>
 
+        {!editing && !readonly && plan && pending.length > 0 && (
+          <Button
+            size="sm"
+            variant={plan.assignments.length === 0 ? 'primary' : 'soft'}
+            disabled={busy}
+            title={
+              plan.assignments.length === 0
+                ? '将花名册中的待排学生按顺序排入教室座位'
+                : '把待排新学生按顺序填入当前剩余空座，不打乱已排座位'
+            }
+            onClick={() => {
+              const targetRows =
+                plan.assignments.length === 0 && members.length > plan.rows * plan.cols
+                  ? Math.min(12, Math.max(plan.rows, Math.ceil(members.length / plan.cols)))
+                  : plan.rows;
+              const next =
+                plan.assignments.length === 0
+                  ? sequentialAssignments(targetRows, plan.cols, members)
+                  : resizeAssignments(plan, members, targetRows, plan.cols);
+              void commitLayout(
+                targetRows,
+                plan.cols,
+                next,
+                plan.assignments.length === 0 ? '一键按名单入座' : `将 ${pending.length} 人填入空座`,
+              );
+              onNotify(
+                plan.assignments.length === 0
+                  ? `已为 ${next.length} 名同学安排座位`
+                  : `已将待排同学填入空座（共 ${next.length} 人就座）`,
+              );
+            }}
+          >
+            {plan.assignments.length === 0 ? '一键按名单入座' : `填入空座 (+${pending.length})`}
+          </Button>
+        )}
+
         {!editing && (
           <>
             <Button

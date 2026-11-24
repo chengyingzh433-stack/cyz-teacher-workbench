@@ -11,6 +11,9 @@ const appVersion = String(
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     build: {
       rollupOptions: {
         external: ['node:sqlite', 'electron'],

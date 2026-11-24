@@ -20,6 +20,7 @@ import { getTheme } from '../../themes';
 import { Badge, Button, Card, ConfirmDialog, Select } from '../../components/ui/primitives';
 import { EChart } from '../../components/ui/EChart';
 import { GradeImportModal } from './GradeImportModal';
+import { QuickScoreModal } from './QuickScoreModal';
 import { ExamTutorDrawer } from './ExamTutorDrawer';
 import { GradingWorkbenchTab } from '../grading/GradingWorkbenchTab';
 import { ExamAnalyticsView, type ScoreEditDraft } from './ExamAnalyticsView';
@@ -31,6 +32,7 @@ const DEFAULT_EXC_PCT = 85;
 export function ExamCenter({
   cls,
   members,
+  allMembers,
   exams,
   selectedExamId,
   themeId,
@@ -43,6 +45,7 @@ export function ExamCenter({
 }: {
   cls: ClassRecord;
   members: StudentMember[];
+  allMembers?: StudentMember[];
   exams: ExamSummary[];
   selectedExamId: string;
   themeId: string;
@@ -63,6 +66,7 @@ export function ExamCenter({
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importTargetExam, setImportTargetExam] = useState<ExamSummary | null>(null);
+  const [quickScoreOpen, setQuickScoreOpen] = useState(false);
   const [tutorOpen, setTutorOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ExamSummary | null>(null);
@@ -308,6 +312,7 @@ export function ExamCenter({
             setImportTargetExam(activeExam);
             setImportOpen(true);
           }}
+          onOpenQuickScore={() => setQuickScoreOpen(true)}
           onOpenTutor={() => setTutorOpen(true)}
           onOpenExport={() => setExportOpen(true)}
           onOpenStudentProfile={onOpenStudentProfile}
@@ -340,7 +345,10 @@ export function ExamCenter({
         open={importOpen}
         onOpenChange={setImportOpen}
         classId={cls.id}
+        className={cls.name}
         members={members}
+        allMembers={allMembers ?? members}
+        exams={exams}
         existingExam={importTargetExam}
         onImported={async (eid) => {
           await onRefreshAll();
@@ -349,6 +357,26 @@ export function ExamCenter({
         }}
         onNotify={onNotify}
       />
+
+      {detail && (
+        <QuickScoreModal
+          open={quickScoreOpen}
+          onOpenChange={setQuickScoreOpen}
+          className={cls.name}
+          detail={detail}
+          allMembers={allMembers ?? members}
+          defaultColumnId={effectiveColId === 'computed' ? detail.columns[0]?.id || '' : effectiveColId}
+          onRecorded={async (updated, rosterChanged) => {
+            setDetail(updated);
+            if (rosterChanged) await onRefreshAll();
+            else {
+              const tr = await window.workbenchApi.exams.getClassTrends(cls.id);
+              setTrends(tr);
+            }
+          }}
+          onNotify={onNotify}
+        />
+      )}
 
       {activeExam && (
         <ExamTutorDrawer

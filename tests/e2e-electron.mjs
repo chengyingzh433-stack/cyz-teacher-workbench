@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -85,13 +86,80 @@ const mockZhixueHtml = `<!doctype html>
 </body>
 </html>`;
 
-const mockServer = http.createServer((_req, res) => {
+// Prepare a tiny real ZIP bundle with valid Info.plist for testing real AppUpdater download + SHA-256 + macOS staging
+const mockUpdateBuildRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cyz-e2e-upd-'));
+const mockAppContents = path.join(mockUpdateBuildRoot, 'cyz的教师工作台.app', 'Contents');
+fs.mkdirSync(mockAppContents, { recursive: true });
+fs.writeFileSync(
+  path.join(mockAppContents, 'Info.plist'),
+  `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.cyz.teacher-workbench</string>
+  <key>CFBundleShortVersionString</key><string>1.5.0</string>
+</dict></plist>`,
+  'utf8',
+);
+const mockUpdateZipName = 'cyz-teacher-workbench-1.5.0-arm64-mac.zip';
+const mockUpdateZipPath = path.join(mockUpdateBuildRoot, mockUpdateZipName);
+execFileSync('/usr/bin/ditto', [
+  '-c',
+  '-k',
+  '--sequesterRsrc',
+  '--keepParent',
+  path.join(mockUpdateBuildRoot, 'cyz的教师工作台.app'),
+  mockUpdateZipPath,
+]);
+const mockUpdateZipBuf = fs.readFileSync(mockUpdateZipPath);
+const mockUpdateSha256 = crypto.createHash('sha256').update(mockUpdateZipBuf).digest('hex');
+
+let mockPort = 0;
+const mockServer = http.createServer((req, res) => {
+  if (req.url === '/releases/latest') {
+    const body = JSON.stringify({
+      tag_name: 'v1.5.0',
+      name: 'v1.5.0 测试在线更新版',
+      body: '- 成绩导入新增本班归属确认与同考覆盖\n- 新增 GitHub 一键检测与更新重启',
+      html_url: 'https://github.com/chengyingzh433-stack/cyz-teacher-workbench/releases/tag/v1.5.0',
+      published_at: '2026-11-24T12:00:00Z',
+      assets: [
+        {
+          name: mockUpdateZipName,
+          browser_download_url: `http://127.0.0.1:${mockPort}/downloads/${mockUpdateZipName}`,
+          size: mockUpdateZipBuf.length,
+        },
+        {
+          name: 'SHA256SUMS.txt',
+          browser_download_url: `http://127.0.0.1:${mockPort}/downloads/SHA256SUMS.txt`,
+          size: 120,
+        },
+      ],
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(body);
+    return;
+  }
+  if (req.url === `/downloads/${mockUpdateZipName}`) {
+    res.writeHead(200, {
+      'Content-Type': 'application/zip',
+      'Content-Length': String(mockUpdateZipBuf.length),
+    });
+    res.end(mockUpdateZipBuf);
+    return;
+  }
+  if (req.url === '/downloads/SHA256SUMS.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(`${mockUpdateSha256}  ${mockUpdateZipName}\n`);
+    return;
+  }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(mockZhixueHtml);
 });
 await new Promise((resolve) => mockServer.listen(0, '127.0.0.1', resolve));
-const mockPort = mockServer.address().port;
+mockPort = mockServer.address().port;
 const mockZhixueUrl = `http://127.0.0.1:${mockPort}/`;
+process.env.CYZ_UPDATE_API_URL = `http://127.0.0.1:${mockPort}/releases/latest`;
+process.env.CYZ_DISABLE_STARTUP_UPDATE = '1';
 void mockPaperIndex;
 
 // Guardrail spy: verify zero passive macOS Keychain async prompts across the entire desktop run!
@@ -163,6 +231,14 @@ async function saveShot(win, filename) {
 function readPersistedThemeId() {
   const raw = JSON.parse(fs.readFileSync(path.join(tmpUserData, 'preferences.json'), 'utf8'));
   return raw.themeId;
+}
+
+async function clickNav(win, label) {
+  await win.webContents.executeJavaScript(`(() => {
+    const btn = Array.from(document.querySelectorAll('aside nav button')).find((b) => (b.textContent || '').includes(${JSON.stringify(label)}));
+    if (!btn) throw new Error('Sidebar nav item not found: ' + ${JSON.stringify(label)});
+    btn.click();
+  })()`);
 }
 
 async function openSettingsThemeTab(win) {
@@ -1046,20 +1122,268 @@ app.on('browser-window-created', (_ev, win) => {
       await closeSettings(win);
       await saveShot(win, '21-qbank-glass-aurora.png');
 
+      // Step 22: Switch to Studio Light -> Create empty class "高三54班" -> Grade Import confirmation gate + auto-seating + same-exam overwrite + QuickScore add student
+      await openSettingsThemeTab(win);
+      await clickThemeCard(win, '现代暖白工作室');
+      await closeSettings(win);
+      await sleep(300);
+
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('aside button')).find((b) => (b.textContent || '').trim() === '新建');
+        if (!btn) throw new Error('New class button not found');
+        btn.click();
+      })()`);
+      await sleep(300);
+      await win.webContents.executeJavaScript(`(() => {
+        const inp = document.querySelector('[role="dialog"] input');
+        if (!inp) throw new Error('Class name input not found');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(inp, '高三54班');
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(150);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').trim() === '保存');
+        if (!btn) throw new Error('Create class confirm button not found');
+        btn.click();
+      })()`);
+      await sleep(600);
+
+      await clickNav(win, '统一考试中心');
+      await sleep(400);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('导入 Excel'));
+        if (!btn) throw new Error('Import Excel button not found');
+        btn.click();
+      })()`);
+      await sleep(350);
+
+      // Verify target class banner clearly shows 高三54班
+      const importBannerOk = await win.webContents.executeJavaScript(`
+        (document.querySelector('[role="dialog"]')?.innerText || '').includes('高三54班')
+      `);
+      assert.equal(importBannerOk, true, 'GradeImportModal must prominently display target class 高三54班');
+
+      // Paste 3-student TSV with Gender column
+      const sampleTsv = '姓名\t学号\t性别\t物理(100分)\t总分\n王明\t5401\t男\t90\t610\n陈雪\t5402\t女\t86\t598\n李晨\t5403\t男\t78\t560';
+      await win.webContents.executeJavaScript(`(() => {
+        const ta = document.querySelector('[role="dialog"] textarea');
+        if (!ta) throw new Error('Paste textarea not found');
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(ta, ${JSON.stringify(sampleTsv)});
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(200);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('解析粘贴内容'));
+        if (!btn) throw new Error('Parse paste button not found');
+        btn.click();
+      })()`);
+      await sleep(450);
+
+      // Proceed from Step 1 to Step 2
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('下一步'));
+        if (!btn) throw new Error('Step 1 next button not found');
+        btn.click();
+      })()`);
+      await sleep(400);
+
+      // Verify unmatched confirmation gate disables commit button before checking
+      const gateState = await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const text = dlg?.innerText || '';
+        const commitBtn = Array.from(dlg?.querySelectorAll('button') || []).find((b) => (b.textContent || '').includes('确认写入'));
+        return {
+          hasNewNotice: text.includes('发现 3 名学生不在「高三54班」现有花名册中'),
+          commitDisabledBeforeConfirm: Boolean(commitBtn?.disabled),
+        };
+      })()`);
+      assert.equal(gateState.hasNewNotice, true, 'Must warn about 3 unmatched students not in 高三54班');
+      assert.equal(gateState.commitDisabledBeforeConfirm, true, 'Commit button must stay disabled until teacher confirms new students belong to this class');
+      await saveShot(win, '22-grade-import-confirm-new.png');
+
+      // Check confirmation box and commit (autoSeatNew is checked by default!)
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const cb = dlg?.querySelector('input[type="checkbox"]');
+        if (!cb) throw new Error('Confirmation checkbox not found');
+        cb.click();
+      })()`);
+      await sleep(200);
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const commitBtn = Array.from(dlg?.querySelectorAll('button') || []).find((b) => (b.textContent || '').includes('确认写入'));
+        if (!commitBtn || commitBtn.disabled) throw new Error('Commit button did not enable after confirmation');
+        commitBtn.click();
+      })()`);
+      await sleep(800);
+
+      // Verify Classroom immediately shows 3 seated students (NOT 0 seated!)
+      await clickNav(win, '互动教室');
+      await sleep(500);
+      const classroomSeatedCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.querySelector('main')?.innerText || '';
+        return { has3Seated: text.includes('3 人就座'), hasWaiting: text.includes('待排') };
+      })()`);
+      assert.equal(classroomSeatedCheck.has3Seated, true, 'New students created during grade import must auto-seat into empty classroom');
+      assert.equal(classroomSeatedCheck.hasWaiting, false, 'No students should remain waiting when classroom had empty seats');
+      await saveShot(win, '23-classroom-autoseated.png');
+
+      // Switch back to ExamCenter -> re-import SAME exam with swapped columns & updated physics score 96 -> verify overwrite mode auto-detected & no duplicate columns!
+      await clickNav(win, '统一考试中心');
+      await sleep(450);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('导入 Excel'));
+        if (!btn) throw new Error('Import Excel button not found');
+        btn.click();
+      })()`);
+      await sleep(300);
+      const overwriteTsv = '姓名\t总分\t物理\n王明\t618\t96\n陈雪\t600\t88';
+      await win.webContents.executeJavaScript(`(() => {
+        const ta = document.querySelector('[role="dialog"] textarea');
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(ta, ${JSON.stringify(overwriteTsv)});
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(200);
+      await win.webContents.executeJavaScript(`(() => {
+        Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('解析粘贴内容'))?.click();
+      })()`);
+      await sleep(400);
+      await win.webContents.executeJavaScript(`(() => {
+        Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('下一步'))?.click();
+      })()`);
+      await sleep(400);
+      const overwriteDetected = await win.webContents.executeJavaScript(`
+        (document.querySelector('[role="dialog"]')?.innerText || '').includes('确认覆盖更新考试')
+      `);
+      assert.equal(overwriteDetected, true, 'Re-importing same-name exam must auto-select overwrite mode');
+      await win.webContents.executeJavaScript(`(() => {
+        Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('确认覆盖更新考试'))?.click();
+      })()`);
+      await sleep(700);
+      const afterOverwriteCheck = await win.webContents.executeJavaScript(`(() => {
+        const text = document.querySelector('main')?.innerText || '';
+        const ths = Array.from(document.querySelectorAll('main table thead th')).map((t) => (t.textContent || '').trim());
+        return { has96: text.includes('96'), colHeaders: ths };
+      })()`);
+      assert.equal(afterOverwriteCheck.has96, true, 'Overwritten physics score 96 must appear in table');
+      assert.equal(afterOverwriteCheck.colHeaders.length, 4, 'Table should still have 2 score columns + student + rank (no duplicate columns)');
+
+      // Quick inline score modal -> add 4th student "赵新同学" with explicit class confirmation
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('main button')).find((b) => (b.textContent || '').includes('录分 / 加人'));
+        if (!btn) throw new Error('Quick score button not found');
+        btn.click();
+      })()`);
+      await sleep(300);
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const inputs = Array.from(dlg?.querySelectorAll('input') || []).filter((i) => i.type !== 'checkbox');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(inputs[0], '赵新同学');
+        inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(250);
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const cb = dlg?.querySelector('input[type="checkbox"]');
+        if (!cb) throw new Error('QuickScore confirm checkbox not found');
+        cb.click();
+      })()`);
+      await sleep(200);
+      await win.webContents.executeJavaScript(`(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        const scoreInput = Array.from(dlg?.querySelectorAll('input') || []).find((i) => (i.placeholder || '').includes('88.5'));
+        if (!scoreInput) throw new Error('QuickScore score input not found');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(scoreInput, '89');
+        scoreInput.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await sleep(200);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('确认新建并录分'));
+        if (!btn || btn.disabled) throw new Error('QuickScore submit button disabled');
+        btn.click();
+      })()`);
+      await sleep(700);
+      const quickAddedOk = await win.webContents.executeJavaScript(`
+        (document.querySelector('main')?.innerText || '').includes('赵新同学')
+      `);
+      assert.equal(quickAddedOk, true, 'QuickScore must create 赵新同学 and display in exam table');
+
+      // Step 23: Real GitHub Auto-Updater check -> download -> SHA-256 verify -> macOS .app staging -> ready UI
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('aside button')).find((b) => (b.textContent || '').includes('v1.4.0'));
+        if (!btn) throw new Error('Sidebar version footer button not found');
+        btn.click();
+      })()`);
+      await sleep(350);
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('检查更新'));
+        if (!btn) throw new Error('Check update button not found');
+        btn.click();
+      })()`);
+      const checkDeadline = Date.now() + 8000;
+      while (Date.now() < checkDeadline) {
+        const found = await win.webContents.executeJavaScript(
+          `(document.querySelector('[role="dialog"]')?.innerText || '').includes('发现新版本 v1.5.0')`,
+        );
+        if (found) break;
+        await sleep(200);
+      }
+      const updateAvailableOk = await win.webContents.executeJavaScript(
+        `(document.querySelector('[role="dialog"]')?.innerText || '').includes('发现新版本 v1.5.0')`,
+      );
+      assert.equal(updateAvailableOk, true, 'Updater must detect v1.5.0 from mock GitHub Releases API');
+
+      await win.webContents.executeJavaScript(`(() => {
+        const btn = Array.from(document.querySelectorAll('[role="dialog"] button')).find((b) => (b.textContent || '').includes('立即下载更新'));
+        if (!btn) throw new Error('Download update button not found');
+        btn.click();
+      })()`);
+      const dlDeadline = Date.now() + 10000;
+      while (Date.now() < dlDeadline) {
+        const ready = await win.webContents.executeJavaScript(
+          `(document.querySelector('[role="dialog"]')?.innerText || '').includes('v1.5.0 已下载就绪')`,
+        );
+        if (ready) break;
+        await sleep(250);
+      }
+      const updaterReadyState = await win.webContents.executeJavaScript(`(() => {
+        const text = document.querySelector('[role="dialog"]')?.innerText || '';
+        return {
+          isReady: text.includes('v1.5.0 已下载就绪'),
+          shaOk: text.includes('SHA-256 校验通过'),
+        };
+      })()`);
+      assert.equal(updaterReadyState.isReady, true, 'Updater must finish download & staging of v1.5.0');
+      assert.equal(updaterReadyState.shaOk, true, 'Updater must strictly verify SHA-256 checksum');
+      await saveShot(win, '24-settings-updater-ready.png');
+      await closeSettings(win);
+      await sleep(250);
+      const sidebarUpdateBadge = await win.webContents.executeJavaScript(
+        `(document.querySelector('aside')?.innerText || '').includes('可重启更新')`,
+      );
+      assert.equal(sidebarUpdateBadge, true, 'Sidebar version footer must show 可重启更新 badge when update is staged');
+
       assert.equal(
         asyncKeychainCalls,
         0,
         `macOS zero-popup guardrail violated: safeStorage.isAsyncEncryptionAvailable called ${asyncKeychainCalls} times!`,
       );
       assert.equal(errors.length, 0, `Encountered runtime errors:\n${errors.join('\n')}`);
-      console.log('[E2E PASS] All 23 real desktop user flows (incl. AI presets, Zhixue ROI/crawler/auto-delay, Apps Hub & 6-page physics PDF qbank + Word/PDF/PPTX exports) passed with 0 errors!');
+      console.log('[E2E PASS] All 26 real desktop user flows (incl. Grade Import new-student confirmation/overwrite/auto-seating, QuickScore & GitHub Auto-Updater download/SHA256) passed with 0 errors!');
       mockServer.close();
+      fs.rmSync(mockUpdateBuildRoot, { recursive: true, force: true });
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(0);
     } catch (err) {
       console.error('[E2E FAIL]', err);
       if (errors.length) console.error('[CAPTURED ERRORS]\n' + errors.join('\n'));
       mockServer.close();
+      fs.rmSync(mockUpdateBuildRoot, { recursive: true, force: true });
       fs.rmSync(tmpRoot, { recursive: true, force: true });
       app.exit(1);
     }

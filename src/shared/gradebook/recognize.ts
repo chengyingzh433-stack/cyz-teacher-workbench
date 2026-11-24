@@ -1,4 +1,4 @@
-import type { ScoreStatus } from '../types';
+import type { Gender, ScoreStatus } from '../types';
 import type { ColumnMapping, ColumnRole, TableCell, TableMapping, TableSheet } from './table';
 
 const tidy = (text: string) =>
@@ -9,8 +9,24 @@ const tidy = (text: string) =>
 
 export const normalizeName = (text: string) => text.normalize('NFKC').replace(/\s+/g, '').trim();
 
+/** Normalizes a column label for matching across re-imports of the same exam (strips max-score parens & whitespace). */
+export const normalizeColumnLabel = (text: string) =>
+  text
+    .normalize('NFKC')
+    .replace(/[（(]\s*(?:满分\s*[:：]?)?\s*\d+(?:\.\d{1,2})?\s*分?\s*[)）]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+    .trim();
+
+export function parseGenderText(text: string): Gender {
+  const t = text.normalize('NFKC').trim().toLowerCase();
+  if (/^(男|男生|m|male)$/.test(t)) return 'male';
+  if (/^(女|女生|f|female)$/.test(t)) return 'female';
+  return 'unspecified';
+}
+
 const excludedColumnLabel =
-  /排名|名次|班排|校排|级排|年排|等级|赋分|标准分|百分位|性别|序号|座号|座位|考场|备注|电话/;
+  /排名|名次|班排|校排|级排|年排|等级|赋分|标准分|百分位|序号|座号|座位|考场|备注|电话/;
 
 function detectRole(text: string): ColumnRole {
   const t = tidy(text);
@@ -18,6 +34,7 @@ function detectRole(text: string): ColumnRole {
   if (/^(学号|学生编号|考号|准考证号|考生号|编号|学籍号|studentid|id|no\.?|number)$/.test(t))
     return 'number';
   if (/^(班级|班别|行政班|班级名称|class|classname)$/.test(t)) return 'class';
+  if (/^(性别|男女|gender|sex)$/.test(t)) return 'gender';
   if (excludedColumnLabel.test(t)) return 'ignore';
   if (/^(总分|总成绩|合计|总计|total|totalscore)(\(|（|\d|$)/.test(t)) return 'total';
   if (
@@ -69,13 +86,13 @@ export function mappedColumns(sheet: TableSheet, start: number, end: number): Co
       if (parent === 'score' || parent === 'total') selected = parent;
     }
     const label =
-      parts.length > 1 && !['name', 'number', 'class'].includes(selected) ? combined : leaf;
+      parts.length > 1 && !['name', 'number', 'class', 'gender'].includes(selected) ? combined : leaf;
     const max =
       combined.match(/满分\s*[:：]?\s*(\d+(?:\.\d{1,2})?)/) ||
       combined.match(/[（(]\s*(\d+(?:\.\d{1,2})?)\s*分?\s*[)）]/);
     columns.push({ index: c, label: label.slice(0, 120), role: selected, max: max?.[1] || '' });
   }
-  for (const identity of ['name', 'number', 'class'] as const) {
+  for (const identity of ['name', 'number', 'class', 'gender'] as const) {
     const matches = columns.filter((c) => c.role === identity);
     if (matches.length > 1) for (const col of matches) col.role = 'ignore';
   }
@@ -149,6 +166,7 @@ export function gradeSourceRows(sheet: TableSheet, mapping: TableMapping) {
   const nameCol = colIdx('name');
   const numberCol = colIdx('number');
   const classCol = colIdx('class');
+  const genderCol = colIdx('gender');
   const classMerges = sheet.merges
     .filter(
       (m) => m.startCol === classCol && m.endCol === classCol && m.startRow > mapping.headerEnd,
@@ -160,6 +178,8 @@ export function gradeSourceRows(sheet: TableSheet, mapping: TableMapping) {
     const row = mapping.headerEnd + 1 + offset;
     const name = nameCol === undefined ? '' : cells[nameCol]?.text.trim() || '';
     const number = numberCol === undefined ? '' : cells[numberCol]?.text.trim() || '';
+    const gender: Gender =
+      genderCol === undefined ? 'unspecified' : parseGenderText(cells[genderCol]?.text || '');
     while (mergeIndex < classMerges.length && classMerges[mergeIndex].endRow < row) mergeIndex++;
     const merge = classMerges[mergeIndex];
     const classRow = merge && merge.startRow <= row ? merge.startRow : row;
@@ -177,6 +197,7 @@ export function gradeSourceRows(sheet: TableSheet, mapping: TableMapping) {
         rowIndex: row,
         name,
         number,
+        gender,
         sourceClass,
         classFormula: !!classCell?.formula,
         automaticExclusion,
